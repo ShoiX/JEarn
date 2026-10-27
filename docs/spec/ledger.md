@@ -15,7 +15,9 @@ The prototype edits and deletes records freely; **these rules override it.**
   | reversal | original credit | original debit |
 - Account classes: bank, savings, cash, investment = **asset**; credit card, loan = **liability**; expense/income categories = **expense/income**; one built-in **equity** account "Opening Balances" (fixed id).
 - **Voiding** posts a `reversal` entry with `reverses = original.id`, the same `date` and amount as the original (so past months net to zero). An entry can be voided once; reversals cannot be voided.
-- **Two dates:** `date` = when it happened (user-chosen, may be backdated, max today); `recordedAt` = when it was entered (system clock, never changes). `seq` = local monotonic counter giving the posting order.
+- **Two dates:** `date` = the calendar day it happened (user-chosen, may be backdated, never after today in the device's time zone); `recordedAt` = the instant it was entered (system clock, never changes). `seq` = local monotonic counter giving the posting order, starting at 1.
+- **Calendar days are time-zone independent:** `date` is stored as 00:00 UTC of the chosen year-month-day, and all month/day bucketing uses the UTC Gregorian calendar. An entry made on 31 Oct stays in October even if the phone later changes time zone. Only "what is today" uses the device time zone.
+- **Opening entries** are posted through a helper that picks the direction from the account class (see table), so callers never choose debit/credit by hand.
 - **Money:** integer minor units (`Int64`, cents) in the single ledger currency (ISO 4217). Use `Decimal` only for calculator input and display formatting, then round to the nearest minor unit (half away from zero). Amount entry allows as many decimals as the currency has minor digits (0 for JPY).
 - Correcting an opening balance: void the opening entry and post a new one (Setup → account → "Correct opening balance").
 

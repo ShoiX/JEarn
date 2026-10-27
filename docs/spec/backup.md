@@ -15,7 +15,8 @@ Planned approach: **one-way backup** from the app to the owner's private cloud s
 **Snapshot format (readable, for later analysis)**
 - Top level: `schemaVersion`, `exportedAt`, `appVersion`, `currency`, then arrays of accounts, expense categories (with subcategories and budget history), income categories and ledger entries (ordered by `seq`).
 - Records carry their UUID **and** human-readable names (e.g. an entry includes `debitName`, `creditName`), so the data is understandable without joining ids.
-- Amounts as integer minor units (`amountMinor: 1250` = $12.50 in the ledger currency), dates as ISO 8601, budget months as `YYYY-MM`.
+- Amounts as integer minor units (`amountMinor: 1250` = $12.50 in the ledger currency), entry `date` as an ISO 8601 calendar day (`YYYY-MM-DD`), timestamps (`recordedAt`, `createdAt`, `updatedAt`, `archivedAt`, `exportedAt`) as ISO 8601 UTC, budget months as `YYYY-MM`.
+- **Import validation** (rejects the whole file on any failure): supported `schemaVersion`; `seq` runs 1, 2, 3… with no gaps or duplicates; every amount > 0; debit ≠ credit; every debit/credit id refers to a known account, category, subcategory, income category or Opening Balances; every reversal references an earlier, non-reversal entry and each entry is reversed at most once; no entry dated after the export day.
 - Bump `schemaVersion` on any format change and document it.
 
 **v1 model rules (so adding backup later is a small change)**
