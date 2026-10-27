@@ -54,7 +54,7 @@ Grouped lists (bg `#232532`, radius 8, rows ≥48pt, 1pt `#292B31` separators):
 - Account types: Bank, Savings, Credit card, Cash, Investment, Loan (default Bank). Icons: bank → building.columns, savings → banknote / piggy bank, credit → creditcard, cash → dollarsign.circle, investment → chart.line.uptrend.xyaxis, loan → hand.raised / arrow.down.circle. Home account cards show the type icon before the name.
 - Expense categories: expandable rows (dot, name, sub count). Expanded shows first a "Roll over to next month" switch (46×28 pill; on = accent border, `#2B2741` fill, `#D2CEFD` knob) with a note ("Unspent budget resets each month" / "Carrying +$45 into Oct" / "Starts fresh this month") and a "Reset" button when on; then subs with archive; "Add subcategory"; "Add category" (categories archive too). Renaming is allowed; it is reference data, not ledger history.
 - Income categories: list + add/archive.
-- Currency: "Ledger currency" with a picker (AUD, USD, EUR, GBP, NZD, CAD, SGD, JPY, INR, PHP). JPY has 0 minor digits, the rest 2. **Locked once the first entry exists** (amounts are stored in minor units of this currency).
+- Currency: "Ledger currency" with a picker (PHP, AUD, USD, EUR, GBP, NZD, CAD, SGD, JPY, INR); **default PHP (₱)**. JPY has 0 minor digits, the rest 2. **Locked once the first entry exists** (amounts are stored in minor units of this currency).
 - Footer: "Load sample data", only when the ledger is empty (confirm first). No "Clear transactions": the ledger is never erased in-app.
 - Data: "Export data" (JSON snapshot, format in [backup.md](backup.md), via the Files app share sheet) / "Import data" (only when the ledger is empty).
 

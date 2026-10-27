@@ -3,7 +3,7 @@ import JEarnCore
 
 struct ContentView: View {
     private var result: String {
-        if let value = evaluate("(12+3)×2", currency: .aud) {
+        if let value = evaluate("(12+3)×2", currency: .default) {
             return "(12+3)×2 = \(value)"
         }
         return "(12+3)×2 = error"

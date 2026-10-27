@@ -29,7 +29,7 @@ ExpenseCat   { id, name, budgets: [BudgetEntry], rollover: Bool = false, rollSta
 SubCat       { id, name, budgets: [BudgetEntry], archivedAt?, createdAt, updatedAt }
 BudgetEntry  { from: YYYY-MM, amountMinor: Int64 }
 IncomeCat    { id, name, archivedAt?, createdAt, updatedAt }
-Settings     { currency: ISO 4217 code (default AUD; locked once the ledger has entries) }
+Settings     { currency: ISO 4217 code (default PHP; locked once the ledger has entries) }
 
 // Ledger — append-only, never updated or deleted
 Entry        { id, seq: Int64, kind: expense|income|transfer|opening|reversal,

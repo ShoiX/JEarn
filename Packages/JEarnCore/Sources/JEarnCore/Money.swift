@@ -10,13 +10,15 @@ public struct Currency: Sendable, Codable, Equatable {
         self.minorDigits = minorDigits
     }
 
+    public static let php = Currency(code: "PHP", minorDigits: 2)
+    public static let `default` = php
     public static let aud = Currency(code: "AUD", minorDigits: 2)
     public static let jpy = Currency(code: "JPY", minorDigits: 0)
 
     /// Supported currencies: JPY has 0 minor digits, the rest 2.
     public static let all: [Currency] =
-        ["AUD", "USD", "EUR", "GBP", "NZD", "CAD", "SGD", "INR", "PHP"].map { Currency(code: $0, minorDigits: 2) }
-        + [.jpy]
+        ["PHP", "AUD", "USD", "EUR", "GBP", "NZD", "CAD", "SGD"].map { Currency(code: $0, minorDigits: 2) }
+        + [.jpy, Currency(code: "INR", minorDigits: 2)]
 
     /// Rounds to this currency's minor digits, half away from zero.
     public func rounded(_ value: Decimal) -> Decimal {

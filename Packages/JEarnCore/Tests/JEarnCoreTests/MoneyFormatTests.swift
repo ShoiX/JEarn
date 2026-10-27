@@ -24,4 +24,11 @@ import Foundation
                         "GBP": "\u{00A3}", "JPY": "\u{00A5}", "INR": "\u{20B9}", "PHP": "\u{20B1}"]
         for c in Currency.all { #expect(c.format(100).hasPrefix(expected[c.code]!), "\(c.code)") }
     }
+    @Test func phpDefaultAndOrder() {
+        #expect(Currency.php.code == "PHP")
+        #expect(Currency.php.minorDigits == 2)
+        #expect(Currency.default == .php)
+        #expect(Currency.all.map(\.code) == ["PHP", "AUD", "USD", "EUR", "GBP", "NZD", "CAD", "SGD", "JPY", "INR"])
+        #expect(Currency.php.format(123_456, sign: .none) == "\u{20B1}1,234.56")
+    }
 }
