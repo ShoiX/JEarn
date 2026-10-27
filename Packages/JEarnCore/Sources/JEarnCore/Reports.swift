@@ -37,32 +37,29 @@ public struct SixMonthReport: Sendable, Equatable {
 }
 
 extension Ledger {
-    public func monthReport(_ month: YearMonth, expense: [ExpenseCategory], income: [IncomeCategory],
-                            calendar: Calendar) -> MonthReport {
-        let rows = expense.map { ($0, spent($0, in: month, calendar: calendar)) }.filter { $0.1 > 0 }
+    public func monthReport(_ month: YearMonth, expense: [ExpenseCategory], income: [IncomeCategory]) -> MonthReport {
+        let rows = expense.map { ($0, spent($0, in: month)) }.filter { $0.1 > 0 }
         let total = rows.reduce(0) { $0 + $1.1 }
         let cats = rows
             .sorted { $0.1 != $1.1 ? $0.1 > $1.1 : $0.0.name < $1.0.name }
             .map { CategorySpend(id: $0.0.id, name: $0.0.name, spentMinor: $0.1, percent: Double($0.1) / Double(total) * 100) }
-        return MonthReport(incomeMinor: self.income(income, in: month, calendar: calendar),
-                           spentMinor: totalSpent(expense, in: month, calendar: calendar), categories: cats)
+        return MonthReport(incomeMinor: self.income(income, in: month),
+                           spentMinor: totalSpent(expense, in: month), categories: cats)
     }
 
     /// Current month plus the 5 before it; averages cover only the 5 completed months.
-    public func sixMonthReport(now: Date, expense: [ExpenseCategory], income: [IncomeCategory],
-                               calendar: Calendar) -> SixMonthReport {
-        let current = YearMonth(now, calendar: calendar)
+    public func sixMonthReport(current: YearMonth, expense: [ExpenseCategory], income: [IncomeCategory]) -> SixMonthReport {
         var months = [current]
         for _ in 0..<5 { months.insert(months[0].previous, at: 0) }
         let totals = months.map {
-            MonthTotals(month: $0, incomeMinor: self.income(income, in: $0, calendar: calendar),
-                        spentMinor: totalSpent(expense, in: $0, calendar: calendar))
+            MonthTotals(month: $0, incomeMinor: self.income(income, in: $0),
+                        spentMinor: totalSpent(expense, in: $0))
         }
         let done = months.dropLast()
         func avg(_ sum: Int64) -> Int64 { Int64((Double(sum) / 5).rounded()) }  // half away from zero
         let cats = expense.map { c in
             CategoryAverage(id: c.id, name: c.name,
-                            averageMinor: avg(done.reduce(0) { $0 + spent(c, in: $1, calendar: calendar) }),
+                            averageMinor: avg(done.reduce(0) { $0 + spent(c, in: $1) }),
                             budgetMinor: budgetAt(c.budgets, current))
         }
         return SixMonthReport(months: totals,

@@ -37,3 +37,35 @@ public struct Currency: Sendable, Codable, Equatable {
         Decimal(minor) / pow(10, minorDigits)
     }
 }
+
+public enum MoneySign: Sendable { case none, plus, minus }
+
+extension Currency {
+    public var symbol: String {
+        switch code {
+        case "EUR": "\u{20AC}"
+        case "GBP": "\u{00A3}"
+        case "JPY": "\u{00A5}"
+        case "INR": "\u{20B9}"
+        case "PHP": "\u{20B1}"
+        default: "$"
+        }
+    }
+
+    /// "$1,234.50". `.plus`/`.minus` show the magnitude with "+"/"−" (U+2212); `.none` shows "−" only if negative.
+    /// Not NumberFormatter: its output differs across platforms.
+    public func format(_ minor: Int64, sign: MoneySign = .none) -> String {
+        let mag = minor.magnitude
+        let scale = (0..<minorDigits).reduce(UInt64(1)) { r, _ in r * 10 }
+        var whole = String(mag / scale)
+        var i = whole.count - 3
+        while i > 0 { whole.insert(",", at: whole.index(whole.startIndex, offsetBy: i)); i -= 3 }
+        var frac = ""
+        if minorDigits > 0 {
+            let f = String(mag % scale)
+            frac = "." + String(repeating: "0", count: minorDigits - f.count) + f
+        }
+        let prefix = switch sign { case .plus: "+"; case .minus: "\u{2212}"; case .none: minor < 0 ? "\u{2212}" : "" }
+        return prefix + symbol + whole + frac
+    }
+}

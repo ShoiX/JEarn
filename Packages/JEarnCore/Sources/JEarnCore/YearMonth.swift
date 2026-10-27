@@ -1,6 +1,6 @@
 import Foundation
 
-public struct YearMonth: Sendable, Codable, Hashable, Comparable, CustomStringConvertible {
+public struct YearMonth: Sendable, Hashable, Comparable, CustomStringConvertible {
     public let year: Int
     public let month: Int  // 1...12
 
@@ -9,9 +9,9 @@ public struct YearMonth: Sendable, Codable, Hashable, Comparable, CustomStringCo
         self.month = month
     }
 
-    /// The month containing `date` in the calendar's time zone.
-    public init(_ date: Date, calendar: Calendar) {
-        let c = calendar.dateComponents([.year, .month], from: date)
+    /// The (UTC) month containing `date`.
+    public init(_ date: Date) {
+        let c = CalendarDay.utc.dateComponents([.year, .month], from: date)
         self.init(year: c.year!, month: c.month!)
     }
 
@@ -29,4 +29,19 @@ public struct YearMonth: Sendable, Codable, Hashable, Comparable, CustomStringCo
     public static func < (a: YearMonth, b: YearMonth) -> Bool { (a.year, a.month) < (b.year, b.month) }
 
     public var description: String { String(format: "%04d-%02d", year, month) }
+}
+
+/// Encoded as "YYYY-MM".
+extension YearMonth: Codable {
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.singleValueContainer()
+        guard let ym = YearMonth(try c.decode(String.self)) else {
+            throw DecodingError.dataCorruptedError(in: c, debugDescription: "Expected YYYY-MM")
+        }
+        self = ym
+    }
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.singleValueContainer()
+        try c.encode(description)
+    }
 }

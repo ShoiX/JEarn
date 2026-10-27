@@ -30,6 +30,7 @@ public struct Entry: Sendable, Codable, Equatable, Identifiable {
 public enum LedgerError: Error, Equatable {
     case invalidAmount, sameAccount, reversalNotPostable
     case entryNotFound, alreadyVoided, cannotVoidReversal
+    case dateNotCalendarDay, dateInFuture, invalidOpeningClass
 }
 
 /// Append-only double-entry ledger. `post` and `void` are the only mutations.
@@ -43,11 +44,23 @@ public struct Ledger: Sendable, Codable, Equatable {
 
     @discardableResult
     public mutating func post(kind: EntryKind, date: Date, debit: UUID, credit: UUID,
-                              amountMinor: Int64, note: String = "", now: Date) throws -> Entry {
+                              amountMinor: Int64, note: String = "", now: Date, timeZone: TimeZone) throws -> Entry {
         guard amountMinor > 0 else { throw LedgerError.invalidAmount }
         guard debit != credit else { throw LedgerError.sameAccount }
         guard kind != .reversal else { throw LedgerError.reversalNotPostable }
+        guard CalendarDay.isStamp(date) else { throw LedgerError.dateNotCalendarDay }
+        guard date <= CalendarDay.today(now: now, timeZone: timeZone) else { throw LedgerError.dateInFuture }
         return append(kind: kind, date: date, debit: debit, credit: credit, amount: amountMinor, note: note, reverses: nil, now: now)
+    }
+
+    /// Posts an opening balance; the direction follows the account class (asset: debit account, liability: credit it).
+    @discardableResult
+    public mutating func postOpening(account: UUID, class cls: AccountClass, amountMinor: Int64,
+                                     date: Date, now: Date, timeZone: TimeZone) throws -> Entry {
+        guard cls.isAsset || cls.isLiability else { throw LedgerError.invalidOpeningClass }
+        let (debit, credit) = cls.isAsset ? (account, openingBalancesID) : (openingBalancesID, account)
+        return try post(kind: .opening, date: date, debit: debit, credit: credit, amountMinor: amountMinor,
+                        now: now, timeZone: timeZone)
     }
 
     /// Posts a reversal of `entryID` (same date and amount, debit/credit swapped).
@@ -97,9 +110,9 @@ public struct Ledger: Sendable, Codable, Equatable {
 
     /// Σ debits − Σ credits over `ids` for entries dated in `month`. Reversals net out;
     /// transfers and openings never touch expense/income accounts so they are excluded.
-    public func monthlyNet(_ ids: Set<UUID>, in month: YearMonth, calendar: Calendar) -> Int64 {
+    public func monthlyNet(_ ids: Set<UUID>, in month: YearMonth) -> Int64 {
         entries.reduce(0) { sum, e in
-            guard YearMonth(e.date, calendar: calendar) == month else { return sum }
+            guard YearMonth(e.date) == month else { return sum }
             return sum + (ids.contains(e.debitID) ? e.amountMinor : 0) - (ids.contains(e.creditID) ? e.amountMinor : 0)
         }
     }

@@ -24,8 +24,13 @@ public struct SubCategory: Sendable, Codable, Equatable, Identifiable {
     public var id: UUID
     public var name: String
     public var budgets: [BudgetEntry]
-    public init(id: UUID = UUID(), name: String, budgets: [BudgetEntry] = []) {
+    public var archivedAt: Date?
+    public var createdAt: Date
+    public var updatedAt: Date
+    public init(id: UUID = UUID(), name: String, budgets: [BudgetEntry] = [],
+                archivedAt: Date? = nil, createdAt: Date = Date(), updatedAt: Date = Date()) {
         self.id = id; self.name = name; self.budgets = budgets
+        self.archivedAt = archivedAt; self.createdAt = createdAt; self.updatedAt = updatedAt
     }
 }
 
@@ -36,10 +41,15 @@ public struct ExpenseCategory: Sendable, Codable, Equatable, Identifiable {
     public var rollover: Bool
     public var rollStart: YearMonth?
     public var subs: [SubCategory]
+    public var archivedAt: Date?
+    public var createdAt: Date
+    public var updatedAt: Date
     public init(id: UUID = UUID(), name: String, budgets: [BudgetEntry] = [], rollover: Bool = false,
-                rollStart: YearMonth? = nil, subs: [SubCategory] = []) {
+                rollStart: YearMonth? = nil, subs: [SubCategory] = [],
+                archivedAt: Date? = nil, createdAt: Date = Date(), updatedAt: Date = Date()) {
         self.id = id; self.name = name; self.budgets = budgets
         self.rollover = rollover; self.rollStart = rollStart; self.subs = subs
+        self.archivedAt = archivedAt; self.createdAt = createdAt; self.updatedAt = updatedAt
     }
     /// The category's own id plus its subcategories' ids (entries may debit either).
     var accountIDs: Set<UUID> { Set(subs.map(\.id)).union([id]) }
@@ -48,38 +58,44 @@ public struct ExpenseCategory: Sendable, Codable, Equatable, Identifiable {
 public struct IncomeCategory: Sendable, Codable, Equatable, Identifiable {
     public var id: UUID
     public var name: String
-    public init(id: UUID = UUID(), name: String) { self.id = id; self.name = name }
+    public var archivedAt: Date?
+    public var createdAt: Date
+    public var updatedAt: Date
+    public init(id: UUID = UUID(), name: String, archivedAt: Date? = nil, createdAt: Date = Date(), updatedAt: Date = Date()) {
+        self.id = id; self.name = name
+        self.archivedAt = archivedAt; self.createdAt = createdAt; self.updatedAt = updatedAt
+    }
 }
 
 // MARK: Monthly aggregates, rollover
 
 extension Ledger {
     /// Spent in an expense category (incl. subcategories) for the month.
-    public func spent(_ cat: ExpenseCategory, in month: YearMonth, calendar: Calendar) -> Int64 {
-        monthlyNet(cat.accountIDs, in: month, calendar: calendar)
+    public func spent(_ cat: ExpenseCategory, in month: YearMonth) -> Int64 {
+        monthlyNet(cat.accountIDs, in: month)
     }
 
-    public func spent(_ sub: SubCategory, in month: YearMonth, calendar: Calendar) -> Int64 {
-        monthlyNet([sub.id], in: month, calendar: calendar)
+    public func spent(_ sub: SubCategory, in month: YearMonth) -> Int64 {
+        monthlyNet([sub.id], in: month)
     }
 
     /// Income for the month: credits − debits on income accounts.
-    public func income(_ cats: [IncomeCategory], in month: YearMonth, calendar: Calendar) -> Int64 {
-        -monthlyNet(Set(cats.map(\.id)), in: month, calendar: calendar)
+    public func income(_ cats: [IncomeCategory], in month: YearMonth) -> Int64 {
+        -monthlyNet(Set(cats.map(\.id)), in: month)
     }
 
     /// Total spent across all expense categories for the month.
-    public func totalSpent(_ cats: [ExpenseCategory], in month: YearMonth, calendar: Calendar) -> Int64 {
-        cats.reduce(0) { $0 + spent($1, in: month, calendar: calendar) }
+    public func totalSpent(_ cats: [ExpenseCategory], in month: YearMonth) -> Int64 {
+        cats.reduce(0) { $0 + spent($1, in: month) }
     }
 
     /// Accumulated (budget − spent) from rollStart up to month−1; 0 if rollover is off.
-    public func carryover(_ cat: ExpenseCategory, to month: YearMonth, calendar: Calendar) -> Int64 {
+    public func carryover(_ cat: ExpenseCategory, to month: YearMonth) -> Int64 {
         guard cat.rollover, var m = cat.rollStart else { return 0 }
         var carry: Int64 = 0
         var guardCount = 0
         while m < month, guardCount < 600 {
-            carry += budgetAt(cat.budgets, m) - spent(cat, in: m, calendar: calendar)
+            carry += budgetAt(cat.budgets, m) - spent(cat, in: m)
             m = m.next
             guardCount += 1
         }
@@ -87,12 +103,12 @@ extension Ledger {
     }
 
     /// Available = budget + carryover.
-    public func available(_ cat: ExpenseCategory, in month: YearMonth, calendar: Calendar) -> Int64 {
-        budgetAt(cat.budgets, month) + carryover(cat, to: month, calendar: calendar)
+    public func available(_ cat: ExpenseCategory, in month: YearMonth) -> Int64 {
+        budgetAt(cat.budgets, month) + carryover(cat, to: month)
     }
 
     /// Left to spend = total available − month expenses.
-    public func leftToSpend(_ cats: [ExpenseCategory], in month: YearMonth, calendar: Calendar) -> Int64 {
-        cats.reduce(0) { $0 + available($1, in: month, calendar: calendar) } - totalSpent(cats, in: month, calendar: calendar)
+    public func leftToSpend(_ cats: [ExpenseCategory], in month: YearMonth) -> Int64 {
+        cats.reduce(0) { $0 + available($1, in: month) } - totalSpent(cats, in: month)
     }
 }
