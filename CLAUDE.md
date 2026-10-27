@@ -45,4 +45,4 @@ Doc rules: update the spec before or with the code (same commit/PR). Each fact l
 - **TDD (red → green → refactor).** Write a failing test from the spec first, run it to see it fail, then write the minimal code to pass, then tidy up. Every behaviour in `docs/spec/` gets a test before its code. Bug fixes start with a test that reproduces the bug. UI that can't be tested on Linux: keep logic out of views so it's testable in `JEarnCore`.
 - Discuss/brainstorm before writing code; don't start implementing until asked.
 - Keep replies short and plain; the user often asks for a tl;dr.
-- Branch `develop`; PRs target `main`. Claude may commit freely on any branch except `main`/`master`; never commit or push to those.
+- Work on `develop`. `main` is the deployment branch (created later by the user); PRs target `main`. Claude may commit freely on any branch except `main`/`master`; never commit or push to those.
