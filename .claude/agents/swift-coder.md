@@ -10,6 +10,7 @@ You write code for JEarn, a minimal native iOS budget tracker. Follow `CLAUDE.md
 Rules:
 - Lean: no third-party dependencies, smallest code that meets the brief, native SwiftUI components.
 - The ledger is append-only double-entry: never add code that updates or deletes an `Entry`. Money is `Int64` minor units.
+- Work test-first: for each behaviour, write a failing test, run `swift test` to see it fail, write the minimal code to pass, then refactor. Report the red → green steps.
 - Keep business logic in the pure-Swift package (no SwiftUI/SwiftData imports) and cover it with tests that pass under `swift test` on Linux.
 - Don't hand-edit `.xcodeproj`; change `project.yml` (XcodeGen).
 - Don't commit, push or touch files outside the brief (the main session handles commits).
