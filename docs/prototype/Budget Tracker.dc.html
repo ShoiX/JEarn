@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<style>
+html,body{margin:0;background:#1d1f2d;color:#e9e9ed;font-family:"Inter",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#d2cefd}a:hover{color:#e7e5fe}
+*{box-sizing:border-box}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid #9184d9;outline-offset:2px}
+input::placeholder{color:#75798c}
+::-webkit-scrollbar{display:none}
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px 16px">
+<div style="padding:{{ bezelPad }};border-radius:{{ bezelRadius }};background:{{ bezelBg }};box-shadow:{{ bezelShadow }};display:flex;flex-direction:column;align-items:center;gap:0">
+<sc-if value="{{ showFrameBits }}" hint-placeholder-val="{{ true }}">
+<div style="height:64px;display:flex;align-items:center;justify-content:center;gap:12px">
+<div style="width:9px;height:9px;border-radius:50%;background:#292b31"></div>
+<div style="width:64px;height:6px;border-radius:3px;background:#292b31"></div>
+</div>
+</sc-if>
+<div style="width:375px;height:667px;position:relative;overflow:hidden;background:#161826;display:flex;flex-direction:column;font-size:15px;font-variant-numeric:tabular-nums">
+
+<div style="height:20px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 8px;font-size:12px;font-weight:600">
+<div style="display:flex;gap:4px;align-items:center"><i class="ph ph-cell-signal-full"></i><i class="ph ph-wifi-high"></i></div>
+<div>9:41</div>
+<div style="display:flex;gap:4px;align-items:center">100%<i class="ph ph-battery-full" style="font-size:16px"></i></div>
+</div>
+
+<div style="flex:1;min-height:0;overflow-y:auto">
+
+<sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 12px">
+<div style="font-size:26px;font-weight:500;letter-spacing:-0.01em">{{ monthTitle }}</div>
+<div style="display:flex;gap:4px">
+<button onClick="{{ prevMonth }}" aria-label="Previous month" style="width:36px;height:36px;border-radius:8px;border:1px solid #3f424d;background:transparent;color:#cfd3e5;font-size:16px;display:flex;align-items:center;justify-content:center" style-hover="background:#232532"><i class="ph ph-caret-left"></i></button>
+<button onClick="{{ nextMonth }}" aria-label="Next month" style="width:36px;height:36px;border-radius:8px;border:1px solid #3f424d;background:transparent;color:#cfd3e5;font-size:16px;display:flex;align-items:center;justify-content:center;opacity:{{ nextOpacity }}" style-hover="background:#232532"><i class="ph ph-caret-right"></i></button>
+</div>
+</div>
+<div style="margin:0 16px;padding:16px;border-radius:14px;background:#232532;display:flex;flex-direction:column;gap:10px">
+<div style="font-size:13px;color:#9397ab">{{ leftLabel }}</div>
+<div style="font-size:38px;font-weight:500;letter-spacing:-0.02em;line-height:1;color:{{ leftColor }}">{{ leftAmount }}</div>
+<div style="height:6px;border-radius:3px;background:#3f424d;overflow:hidden"><div style="height:100%;border-radius:3px;width:{{ spentBar }};background:{{ spentBarColor }}"></div></div>
+<div style="display:flex;justify-content:space-between;font-size:13px;color:#b2b6ca">
+<div>{{ spentOf }}</div>
+<div>Income {{ incomeLabel }}</div>
+</div>
+</div>
+<div style="padding:20px 16px 8px;font-size:13px;color:#9397ab;font-weight:500">Accounts</div>
+<div style="display:flex;gap:8px;overflow-x:auto;padding:0 16px">
+<sc-for list="{{ accounts }}" as="a" hint-placeholder-count="3">
+<div style="flex:none;min-width:112px;padding:10px 12px;border-radius:8px;background:#232532;display:flex;flex-direction:column;gap:4px">
+<div style="display:flex;align-items:center;gap:5px;font-size:12px;color:#9397ab"><i class="{{ a.icon }}" style="font-size:14px"></i>{{ a.name }}</div>
+<div style="font-size:16px;font-weight:500;color:{{ a.color }}">{{ a.balance }}</div>
+</div>
+</sc-for>
+</div>
+<div style="padding:20px 16px 4px;font-size:13px;color:#9397ab;font-weight:500">Transactions</div>
+<sc-if value="{{ noTx }}" hint-placeholder-val="{{ false }}">
+<div style="padding:24px 16px;color:#9397ab;font-size:14px;line-height:1.5">No transactions this month. Tap + to add one.</div>
+</sc-if>
+<sc-for list="{{ groups }}" as="g" hint-placeholder-count="2">
+<div style="padding:10px 16px 2px;font-size:12px;color:#75798c">{{ g.label }}</div>
+<sc-for list="{{ g.items }}" as="t" hint-placeholder-count="3">
+<button onClick="{{ t.onTap }}" style="width:100%;min-height:52px;padding:8px 16px;border:none;background:transparent;color:#e9e9ed;display:flex;align-items:center;gap:12px;text-align:left" style-hover="background:#232532">
+<div style="width:8px;height:8px;border-radius:50%;flex:none;background:{{ t.dot }}"></div>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+<div style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.title }}</div>
+<div style="font-size:12px;color:#9397ab;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.meta }}</div>
+</div>
+<div style="font-size:15px;color:{{ t.color }}">{{ t.amount }}</div>
+</button>
+</sc-for>
+</sc-for>
+<div style="height:16px"></div>
+</sc-if>
+
+<sc-if value="{{ isBudgets }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 12px">
+<div style="font-size:26px;font-weight:500;letter-spacing:-0.01em">Budgets</div>
+<div style="display:flex;gap:4px;align-items:center">
+<button onClick="{{ prevMonth }}" aria-label="Previous month" style="width:32px;height:36px;border:none;background:transparent;color:#cfd3e5;font-size:16px;display:flex;align-items:center;justify-content:center"><i class="ph ph-caret-left"></i></button>
+<div style="font-size:14px;color:#cfd3e5;min-width:64px;text-align:center">{{ monthShort }}</div>
+<button onClick="{{ nextMonth }}" aria-label="Next month" style="width:32px;height:36px;border:none;background:transparent;color:#cfd3e5;font-size:16px;display:flex;align-items:center;justify-content:center;opacity:{{ nextOpacity }}"><i class="ph ph-caret-right"></i></button>
+</div>
+</div>
+<div style="margin:0 16px 12px;display:flex;justify-content:space-between;font-size:13px;color:#b2b6ca">
+<div>Spent {{ spentTotalLabel }}</div>
+<div>Available {{ budgetTotalLabel }}</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px;padding:0 16px 16px">
+<sc-for list="{{ budgets }}" as="c" hint-placeholder-count="4">
+<div style="border-radius:8px;background:#232532;padding:12px;display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;align-items:center;gap:8px">
+<div style="width:8px;height:8px;border-radius:50%;background:{{ c.color }}"></div>
+<div style="flex:1;font-size:15px;font-weight:500">{{ c.name }}</div>
+<div style="font-size:14px;color:#b2b6ca">{{ c.spent }} /</div>
+<sc-if value="{{ c.editing }}" hint-placeholder-val="{{ false }}">
+<input type="number" inputmode="decimal" ref="{{ focusRef }}" value="{{ editValue }}" onChange="{{ onEditValue }}" onBlur="{{ commitEdit }}" onKeyDown="{{ editKey }}" style="width:76px;height:30px;padding:0 6px;border-radius:4px;border:1px solid #9184d9;background:#161826;color:#e9e9ed;font:inherit;font-size:14px;text-align:right">
+</sc-if>
+<sc-if value="{{ c.notEditing }}" hint-placeholder-val="{{ true }}">
+<button onClick="{{ c.startEdit }}" style="height:30px;padding:0 6px;border-radius:4px;border:1px dashed #595d6c;background:transparent;color:#e9e9ed;font-size:14px" style-hover="border-color:#9184d9">{{ c.budget }}</button>
+</sc-if>
+</div>
+<div style="height:6px;border-radius:3px;background:#3f424d;overflow:hidden"><div style="height:100%;border-radius:3px;width:{{ c.bar }};background:{{ c.barColor }}"></div></div>
+<sc-if value="{{ c.hasCarry }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:{{ c.carryColor }}"><i class="ph ph-arrow-bend-down-right" style="font-size:13px"></i>{{ c.carryText }}</div>
+</sc-if>
+<button onClick="{{ c.toggle }}" style="display:flex;justify-content:space-between;align-items:center;border:none;background:transparent;padding:2px 0;color:#9397ab;font-size:13px">
+<div style="color:{{ c.remainColor }}">{{ c.remain }}</div>
+<div style="display:flex;align-items:center;gap:4px">{{ c.subCount }}<i class="{{ c.caret }}"></i></div>
+</button>
+<sc-if value="{{ c.expanded }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:10px;padding:8px 0 2px;border-top:1px solid #3f424d">
+<sc-for list="{{ c.subs }}" as="s" hint-placeholder-count="3">
+<div style="display:flex;flex-direction:column;gap:5px;padding-left:16px">
+<div style="display:flex;align-items:center;gap:8px">
+<div style="flex:1;font-size:14px;color:#cfd3e5">{{ s.name }}</div>
+<div style="font-size:13px;color:#9397ab">{{ s.spent }} /</div>
+<sc-if value="{{ s.editing }}" hint-placeholder-val="{{ false }}">
+<input type="number" inputmode="decimal" ref="{{ focusRef }}" value="{{ editValue }}" onChange="{{ onEditValue }}" onBlur="{{ commitEdit }}" onKeyDown="{{ editKey }}" style="width:70px;height:28px;padding:0 6px;border-radius:4px;border:1px solid #9184d9;background:#161826;color:#e9e9ed;font:inherit;font-size:13px;text-align:right">
+</sc-if>
+<sc-if value="{{ s.notEditing }}" hint-placeholder-val="{{ true }}">
+<button onClick="{{ s.startEdit }}" style="height:28px;padding:0 6px;border-radius:4px;border:1px dashed #595d6c;background:transparent;color:#cfd3e5;font-size:13px" style-hover="border-color:#9184d9">{{ s.budget }}</button>
+</sc-if>
+</div>
+<div style="height:4px;border-radius:2px;background:#3f424d;overflow:hidden"><div style="height:100%;border-radius:2px;width:{{ s.bar }};background:{{ s.barColor }}"></div></div>
+</div>
+</sc-for>
+<sc-if value="{{ c.subsWarn }}" hint-placeholder-val="{{ false }}">
+<div style="padding-left:16px;font-size:12px;color:oklch(0.76 0.11 30)">{{ c.subsWarnText }}</div>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</sc-for>
+<div style="font-size:12px;color:#75798c;line-height:1.5;padding:4px 2px">Tap an amount to change the budget from this month onward. Earlier months keep their budget. Turn on rollover per category in Setup.</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isReports }}" hint-placeholder-val="{{ false }}">
+<div style="padding:14px 16px 12px;font-size:26px;font-weight:500;letter-spacing:-0.01em">Reports</div>
+<div style="margin:0 16px 12px;display:grid;grid-template-columns:1fr 1fr;padding:3px;gap:3px;border-radius:8px;background:#232532">
+<sc-for list="{{ rangeOpts }}" as="o" hint-placeholder-count="2">
+<button onClick="{{ o.onTap }}" style="height:34px;border-radius:6px;border:1px solid {{ o.border }};background:transparent;color:{{ o.color }};font-size:14px">{{ o.label }}</button>
+</sc-for>
+</div>
+<sc-if value="{{ isMonthRange }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;align-items:center;justify-content:space-between;padding:0 8px 8px">
+<button onClick="{{ prevMonth }}" aria-label="Previous month" style="width:40px;height:36px;border:none;background:transparent;color:#cfd3e5;font-size:16px"><i class="ph ph-caret-left"></i></button>
+<div style="font-size:14px;color:#cfd3e5">{{ monthTitle }}</div>
+<button onClick="{{ nextMonth }}" aria-label="Next month" style="width:40px;height:36px;border:none;background:transparent;color:#cfd3e5;font-size:16px;opacity:{{ nextOpacity }}"><i class="ph ph-caret-right"></i></button>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 16px">
+<sc-for list="{{ stats }}" as="st" hint-placeholder-count="3">
+<div style="padding:10px;border-radius:8px;background:#232532;display:flex;flex-direction:column;gap:4px">
+<div style="font-size:12px;color:#9397ab">{{ st.label }}</div>
+<div style="font-size:16px;font-weight:500;color:{{ st.color }}">{{ st.value }}</div>
+</div>
+</sc-for>
+</div>
+<div style="padding:20px 16px 8px;font-size:13px;color:#9397ab;font-weight:500">Spending by category</div>
+<div style="margin:0 16px 16px;padding:12px;border-radius:8px;background:#232532;display:flex;flex-direction:column;gap:12px">
+<sc-if value="{{ noByCat }}" hint-placeholder-val="{{ false }}">
+<div style="font-size:14px;color:#9397ab">Nothing spent this month.</div>
+</sc-if>
+<sc-for list="{{ byCat }}" as="b" hint-placeholder-count="4">
+<div style="display:flex;flex-direction:column;gap:5px">
+<div style="display:flex;justify-content:space-between;font-size:14px">
+<div>{{ b.name }}</div>
+<div style="display:flex;gap:8px"><span style="color:#9397ab">{{ b.pct }}</span><span>{{ b.amount }}</span></div>
+</div>
+<div style="height:8px;border-radius:4px;background:#3f424d;overflow:hidden"><div style="height:100%;border-radius:4px;width:{{ b.width }};background:{{ b.color }}"></div></div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ is6m }}" hint-placeholder-val="{{ false }}">
+<div style="margin:0 16px;padding:14px 12px 10px;border-radius:8px;background:#232532">
+<div style="display:flex;gap:14px;font-size:12px;color:#b2b6ca;padding:0 2px 12px">
+<div style="display:flex;align-items:center;gap:6px"><div style="width:8px;height:8px;border-radius:2px;background:#9184d9"></div>Income</div>
+<div style="display:flex;align-items:center;gap:6px"><div style="width:8px;height:8px;border-radius:2px;background:#b2b6ca"></div>Spending</div>
+</div>
+<div style="height:140px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));align-items:end;gap:6px;border-bottom:1px solid #3f424d">
+<sc-for list="{{ months }}" as="m" hint-placeholder-count="6">
+<div style="display:flex;align-items:flex-end;justify-content:center;gap:3px;height:100%">
+<div style="width:12px;border-radius:3px 3px 0 0;background:#9184d9;height:{{ m.incH }}"></div>
+<div style="width:12px;border-radius:3px 3px 0 0;background:#b2b6ca;height:{{ m.expH }}"></div>
+</div>
+</sc-for>
+</div>
+<div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;padding-top:6px">
+<sc-for list="{{ months }}" as="m" hint-placeholder-count="6">
+<div style="text-align:center;font-size:11px;color:{{ m.labelColor }}">{{ m.label }}</div>
+</sc-for>
+</div>
+</div>
+<div style="padding:20px 16px 8px;font-size:13px;color:#9397ab;font-weight:500">Monthly average</div>
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 16px">
+<sc-for list="{{ avgs }}" as="st" hint-placeholder-count="3">
+<div style="padding:10px;border-radius:8px;background:#232532;display:flex;flex-direction:column;gap:4px">
+<div style="font-size:12px;color:#9397ab">{{ st.label }}</div>
+<div style="font-size:16px;font-weight:500;color:{{ st.color }}">{{ st.value }}</div>
+</div>
+</sc-for>
+</div>
+<div style="padding:20px 16px 8px;font-size:13px;color:#9397ab;font-weight:500">Average per category vs budget</div>
+<div style="margin:0 16px 16px;border-radius:8px;background:#232532">
+<sc-for list="{{ catAvgs }}" as="b" hint-placeholder-count="4">
+<div style="display:flex;align-items:center;gap:10px;padding:12px;border-bottom:1px solid #292b31">
+<div style="width:8px;height:8px;border-radius:50%;background:{{ b.color }}"></div>
+<div style="flex:1;font-size:14px">{{ b.name }}</div>
+<div style="font-size:14px;color:{{ b.avgColor }}">{{ b.avg }}</div>
+<div style="font-size:13px;color:#75798c;min-width:56px;text-align:right">{{ b.budget }}</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+</sc-if>
+
+<sc-if value="{{ isSetup }}" hint-placeholder-val="{{ false }}">
+<div style="padding:14px 16px 12px;font-size:26px;font-weight:500;letter-spacing:-0.01em">Setup</div>
+
+<div style="padding:8px 16px 8px;font-size:13px;color:#9397ab;font-weight:500">Accounts</div>
+<div style="margin:0 16px;border-radius:8px;background:#232532;overflow:hidden">
+<sc-for list="{{ accountRows }}" as="a" hint-placeholder-count="3">
+<div style="display:flex;align-items:center;gap:10px;min-height:56px;padding:0 6px 0 12px;border-bottom:1px solid #292b31">
+<i class="{{ a.icon }}" style="font-size:20px;color:#9397ab"></i>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+<div style="font-size:15px">{{ a.name }}</div>
+<button onClick="{{ a.toggleType }}" style="align-self:flex-start;height:20px;padding:0;border:none;background:transparent;color:#9397ab;font-size:12px;display:flex;align-items:center;gap:3px" style-hover="color:#d2cefd">{{ a.typeLabel }}<i class="{{ a.typeCaret }}" style="font-size:10px"></i></button>
+</div>
+<div style="font-size:14px;color:#9397ab">{{ a.balance }}</div>
+<button onClick="{{ a.remove }}" aria-label="Delete account" style="width:36px;height:36px;border:none;background:transparent;color:#75798c;font-size:16px" style-hover="color:oklch(0.76 0.11 30)"><i class="ph ph-trash"></i></button>
+</div>
+<sc-if value="{{ a.typeOpen }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px 10px 42px;border-bottom:1px solid #292b31">
+<sc-for list="{{ a.typeChips }}" as="o" hint-placeholder-count="6">
+<button onClick="{{ o.onTap }}" style="flex:none;height:32px;padding:0 10px;border-radius:8px;border:1px solid {{ o.border }};background:transparent;color:{{ o.color }};font-size:13px;display:flex;align-items:center;gap:6px"><i class="{{ o.icon }}" style="font-size:15px"></i>{{ o.label }}</button>
+</sc-for>
+</div>
+</sc-if>
+</sc-for>
+<sc-if value="{{ addingAccount }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px">
+<input placeholder="Account name" ref="{{ focusRef }}" value="{{ addVal }}" onChange="{{ onAddVal }}" onKeyDown="{{ addKey }}" style="flex:1 1 60%;min-width:0;height:38px;padding:0 10px;border-radius:4px;border:1px solid #595d6c;background:#161826;color:#e9e9ed;font:inherit;font-size:14px">
+<input placeholder="Balance" type="number" inputmode="decimal" value="{{ addVal2 }}" onChange="{{ onAddVal2 }}" onKeyDown="{{ addKey }}" style="width:84px;height:38px;padding:0 8px;border-radius:4px;border:1px solid #595d6c;background:#161826;color:#e9e9ed;font:inherit;font-size:14px">
+<div style="flex:1 1 100%;display:flex;flex-wrap:wrap;gap:6px">
+<sc-for list="{{ addTypeChips }}" as="o" hint-placeholder-count="6">
+<button onClick="{{ o.onTap }}" style="flex:none;height:32px;padding:0 10px;border-radius:8px;border:1px solid {{ o.border }};background:transparent;color:{{ o.color }};font-size:13px;display:flex;align-items:center;gap:6px"><i class="{{ o.icon }}" style="font-size:15px"></i>{{ o.label }}</button>
+</sc-for>
+</div>
+<button onClick="{{ commitAdd }}" style="height:38px;padding:0 12px;border-radius:8px;border:1px solid #9184d9;background:transparent;color:#d2cefd;font-size:14px">Add</button>
+</div>
+</sc-if>
+<sc-if value="{{ notAddingAccount }}" hint-placeholder-val="{{ true }}">
+<button onClick="{{ startAddAccount }}" style="width:100%;height:46px;display:flex;align-items:center;gap:8px;padding:0 12px;border:none;background:transparent;color:#d2cefd;font-size:15px" style-hover="background:#292b31"><i class="ph ph-plus"></i>Add account</button>
+</sc-if>
+</div>
+
+<div style="padding:20px 16px 8px;font-size:13px;color:#9397ab;font-weight:500">Expense categories</div>
+<div style="margin:0 16px;border-radius:8px;background:#232532;overflow:hidden">
+<sc-for list="{{ catRows }}" as="c" hint-placeholder-count="4">
+<div style="border-bottom:1px solid #292b31">
+<div style="display:flex;align-items:center;min-height:48px;padding-right:6px">
+<button onClick="{{ c.toggle }}" style="flex:1;height:48px;display:flex;align-items:center;gap:10px;padding:0 12px;border:none;background:transparent;color:#e9e9ed;font-size:15px;text-align:left">
+<div style="width:8px;height:8px;border-radius:50%;background:{{ c.color }}"></div>
+<div style="flex:1">{{ c.name }}</div>
+<div style="font-size:13px;color:#9397ab">{{ c.subCount }}</div>
+<i class="{{ c.caret }}" style="color:#9397ab"></i>
+</button>
+<button onClick="{{ c.remove }}" aria-label="Delete category" style="width:36px;height:36px;border:none;background:transparent;color:#75798c;font-size:16px" style-hover="color:oklch(0.76 0.11 30)"><i class="ph ph-trash"></i></button>
+</div>
+<sc-if value="{{ c.expanded }}" hint-placeholder-val="{{ false }}">
+<div style="padding:0 0 6px 30px">
+<div style="display:flex;align-items:center;gap:8px;min-height:52px;padding:4px 12px 4px 0;border-bottom:1px solid #292b31;margin-bottom:4px">
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+<div style="font-size:14px;color:#e9e9ed">Roll over to next month</div>
+<div style="font-size:12px;color:{{ c.rollNoteColor }}">{{ c.rollNote }}</div>
+</div>
+<sc-if value="{{ c.rollover }}" hint-placeholder-val="{{ false }}">
+<button onClick="{{ c.resetRoll }}" style="flex:none;height:30px;padding:0 10px;border-radius:8px;border:1px solid #3f424d;background:transparent;color:#b2b6ca;font-size:12px" style-hover="background:#292b31">Reset</button>
+</sc-if>
+<button onClick="{{ c.toggleRoll }}" role="switch" aria-label="Roll over to next month" style="flex:none;width:46px;height:28px;border-radius:14px;border:1px solid {{ c.rollBorder }};background:{{ c.rollBg }};position:relative;padding:0"><div style="position:absolute;top:3px;left:{{ c.knobLeft }};width:20px;height:20px;border-radius:50%;background:{{ c.knobBg }};transition:left 160ms"></div></button>
+</div>
+<sc-for list="{{ c.subs }}" as="s" hint-placeholder-count="3">
+<div style="display:flex;align-items:center;min-height:40px;padding-right:6px">
+<div style="flex:1;font-size:14px;color:#cfd3e5">{{ s.name }}</div>
+<button onClick="{{ s.remove }}" aria-label="Delete subcategory" style="width:36px;height:36px;border:none;background:transparent;color:#75798c;font-size:15px" style-hover="color:oklch(0.76 0.11 30)"><i class="ph ph-x"></i></button>
+</div>
+</sc-for>
+<sc-if value="{{ c.addingSub }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;gap:6px;padding:4px 8px 4px 0">
+<input placeholder="Subcategory name" ref="{{ focusRef }}" value="{{ addVal }}" onChange="{{ onAddVal }}" onKeyDown="{{ addKey }}" style="flex:1;min-width:0;height:36px;padding:0 10px;border-radius:4px;border:1px solid #595d6c;background:#161826;color:#e9e9ed;font:inherit;font-size:14px">
+<button onClick="{{ commitAdd }}" style="height:36px;padding:0 12px;border-radius:8px;border:1px solid #9184d9;background:transparent;color:#d2cefd;font-size:14px">Add</button>
+</div>
+</sc-if>
+<sc-if value="{{ c.notAddingSub }}" hint-placeholder-val="{{ true }}">
+<button onClick="{{ c.startAddSub }}" style="height:40px;display:flex;align-items:center;gap:8px;padding:0;border:none;background:transparent;color:#d2cefd;font-size:14px"><i class="ph ph-plus"></i>Add subcategory</button>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</sc-for>
+<sc-if value="{{ addingCat }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;gap:6px;padding:8px">
+<input placeholder="Category name" ref="{{ focusRef }}" value="{{ addVal }}" onChange="{{ onAddVal }}" onKeyDown="{{ addKey }}" style="flex:1;min-width:0;height:38px;padding:0 10px;border-radius:4px;border:1px solid #595d6c;background:#161826;color:#e9e9ed;font:inherit;font-size:14px">
+<button onClick="{{ commitAdd }}" style="height:38px;padding:0 12px;border-radius:8px;border:1px solid #9184d9;background:transparent;color:#d2cefd;font-size:14px">Add</button>
+</div>
+</sc-if>
+<sc-if value="{{ notAddingCat }}" hint-placeholder-val="{{ true }}">
+<button onClick="{{ startAddCat }}" style="width:100%;height:46px;display:flex;align-items:center;gap:8px;padding:0 12px;border:none;background:transparent;color:#d2cefd;font-size:15px" style-hover="background:#292b31"><i class="ph ph-plus"></i>Add category</button>
+</sc-if>
+</div>
+
+<div style="padding:20px 16px 8px;font-size:13px;color:#9397ab;font-weight:500">Income categories</div>
+<div style="margin:0 16px;border-radius:8px;background:#232532;overflow:hidden">
+<sc-for list="{{ incomeRows }}" as="a" hint-placeholder-count="3">
+<div style="display:flex;align-items:center;min-height:48px;padding:0 6px 0 12px;border-bottom:1px solid #292b31">
+<div style="flex:1;font-size:15px">{{ a.name }}</div>
+<button onClick="{{ a.remove }}" aria-label="Delete income category" style="width:36px;height:36px;border:none;background:transparent;color:#75798c;font-size:16px" style-hover="color:oklch(0.76 0.11 30)"><i class="ph ph-trash"></i></button>
+</div>
+</sc-for>
+<sc-if value="{{ addingIncome }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;gap:6px;padding:8px">
+<input placeholder="Income category" ref="{{ focusRef }}" value="{{ addVal }}" onChange="{{ onAddVal }}" onKeyDown="{{ addKey }}" style="flex:1;min-width:0;height:38px;padding:0 10px;border-radius:4px;border:1px solid #595d6c;background:#161826;color:#e9e9ed;font:inherit;font-size:14px">
+<button onClick="{{ commitAdd }}" style="height:38px;padding:0 12px;border-radius:8px;border:1px solid #9184d9;background:transparent;color:#d2cefd;font-size:14px">Add</button>
+</div>
+</sc-if>
+<sc-if value="{{ notAddingIncome }}" hint-placeholder-val="{{ true }}">
+<button onClick="{{ startAddIncome }}" style="width:100%;height:46px;display:flex;align-items:center;gap:8px;padding:0 12px;border:none;background:transparent;color:#d2cefd;font-size:15px" style-hover="background:#292b31"><i class="ph ph-plus"></i>Add income category</button>
+</sc-if>
+</div>
+
+<div style="padding:20px 16px 8px;font-size:13px;color:#9397ab;font-weight:500">Currency</div>
+<div style="margin:0 16px;border-radius:8px;background:#232532;display:flex;align-items:center;min-height:48px;padding:0 8px 0 12px;gap:10px">
+<div style="flex:1;font-size:15px">Display currency</div>
+<select value="{{ currency }}" onChange="{{ onCurrency }}" aria-label="Currency" style="max-width:190px;height:36px;padding:0 8px;border-radius:4px;border:1px solid #3f424d;background:#161826;color:#e9e9ed;font:inherit;font-size:14px">
+<option value="AUD">AUD · Australian dollar</option>
+<option value="USD">USD · US dollar</option>
+<option value="EUR">EUR · Euro</option>
+<option value="GBP">GBP · British pound</option>
+<option value="NZD">NZD · New Zealand dollar</option>
+<option value="CAD">CAD · Canadian dollar</option>
+<option value="SGD">SGD · Singapore dollar</option>
+<option value="JPY">JPY · Japanese yen</option>
+<option value="INR">INR · Indian rupee</option>
+<option value="PHP">PHP · Philippine peso</option>
+</select>
+</div>
+<div style="display:flex;gap:8px;padding:24px 16px 20px">
+<button onClick="{{ startFresh }}" style="flex:1;height:40px;border-radius:8px;border:1px solid #3f424d;background:transparent;color:#b2b6ca;font-size:13px" style-hover="background:#232532">Clear transactions</button>
+<button onClick="{{ resetSample }}" style="flex:1;height:40px;border-radius:8px;border:1px solid #3f424d;background:transparent;color:#b2b6ca;font-size:13px" style-hover="background:#232532">Load sample data</button>
+</div>
+</sc-if>
+
+</div>
+
+<div style="height:52px;flex:none;display:grid;grid-template-columns:repeat(5,1fr);align-items:center;border-top:1px solid #292b31;background:#161826">
+<sc-for list="{{ leftTabs }}" as="t" hint-placeholder-count="2">
+<button onClick="{{ t.onTap }}" style="height:52px;border:none;background:transparent;color:{{ t.color }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:10px"><i class="{{ t.icon }}" style="font-size:22px"></i>{{ t.label }}</button>
+</sc-for>
+<div style="display:flex;justify-content:center">
+<button onClick="{{ openAdd }}" aria-label="Add transaction" style="width:46px;height:40px;border-radius:8px;border:1px solid #9184d9;background:transparent;color:#d2cefd;font-size:22px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 14px rgba(145,132,217,0.35)" style-hover="background:#2b2741" style-active="background:#423a6a"><i class="ph ph-plus"></i></button>
+</div>
+<sc-for list="{{ rightTabs }}" as="t" hint-placeholder-count="2">
+<button onClick="{{ t.onTap }}" style="height:52px;border:none;background:transparent;color:{{ t.color }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:10px"><i class="{{ t.icon }}" style="font-size:22px"></i>{{ t.label }}</button>
+</sc-for>
+</div>
+
+<div onClick="{{ closeSheet }}" style="position:absolute;inset:0;background:rgba(0,0,0,0.55);transition:opacity 200ms;opacity:{{ backdropOpacity }};pointer-events:{{ backdropEvents }}"></div>
+<div style="position:absolute;left:0;right:0;bottom:0;top:{{ sheetTop }};background:#232532;border-radius:14px 14px 0 0;box-shadow:0 0 0 1px #3f424d;transition:transform 260ms cubic-bezier(.2,.8,.2,1);transform:{{ sheetTransform }};display:flex;flex-direction:column;overflow:hidden">
+
+<sc-if value="{{ addStepAmount }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 8px 0">
+<button onClick="{{ closeSheet }}" aria-label="Cancel" style="width:40px;height:36px;border:none;background:transparent;color:#cfd3e5;font-size:18px"><i class="ph ph-x"></i></button>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);padding:3px;gap:3px;border-radius:8px;background:#161826;width:252px">
+<sc-for list="{{ typeOpts }}" as="o" hint-placeholder-count="2">
+<button onClick="{{ o.onTap }}" style="height:30px;border-radius:6px;border:1px solid {{ o.border }};background:transparent;color:{{ o.color }};font-size:13px">{{ o.label }}</button>
+</sc-for>
+</div>
+<div style="width:40px"></div>
+</div>
+<div style="display:flex;flex-direction:column;align-items:flex-end;justify-content:flex-end;gap:2px;height:84px;padding:8px 20px 10px">
+<div style="font-size:14px;color:#9397ab;min-height:18px;white-space:nowrap;overflow:hidden;max-width:100%">{{ exprLine }}</div>
+<div style="font-size:40px;font-weight:500;letter-spacing:-0.02em;line-height:1.1;color:{{ amountColor }};white-space:nowrap;overflow:hidden;max-width:100%">{{ amountDisplay }}</div>
+</div>
+<div style="display:flex;gap:6px;padding:0 16px 8px;align-items:center">
+<button onClick="{{ toggleAcctPicker }}" style="min-width:0;height:34px;padding:0 12px;border-radius:8px;border:1px solid {{ acctPillBorder }};background:transparent;color:#cfd3e5;font-size:13px;display:flex;align-items:center;gap:6px"><i class="ph ph-wallet" style="font-size:15px;color:#9397ab"></i><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ acctPillLabel }}</span><i class="ph ph-caret-down" style="font-size:11px;color:#75798c"></i></button>
+<button onClick="{{ toggleDatePicker }}" style="flex:none;height:34px;padding:0 12px;border-radius:8px;border:1px solid {{ datePillBorder }};background:transparent;color:#cfd3e5;font-size:13px;display:flex;align-items:center;gap:6px"><i class="ph ph-calendar-blank" style="font-size:15px;color:#9397ab"></i>{{ datePillLabel }}<i class="ph ph-caret-down" style="font-size:11px;color:#75798c"></i></button>
+<div style="flex:1"></div>
+<button onClick="{{ toggleCalc }}" aria-label="Calculator" style="flex:none;width:38px;height:34px;border-radius:8px;border:1px solid {{ calcBorder }};background:{{ calcBg }};color:{{ calcColor }};font-size:18px;display:flex;align-items:center;justify-content:center"><i class="ph ph-calculator"></i></button>
+</div>
+<sc-if value="{{ showAcctPicker }}" hint-placeholder-val="{{ false }}">
+<div style="margin:0 16px 8px;padding:10px;border-radius:8px;background:#161826;display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="font-size:12px;color:#9397ab">{{ acctLabel }}</div>
+<div style="display:flex;flex-wrap:wrap;gap:6px">
+<sc-for list="{{ accountChips }}" as="o" hint-placeholder-count="3">
+<button onClick="{{ o.onTap }}" style="flex:none;height:34px;padding:0 12px;border-radius:8px;border:1px solid {{ o.border }};background:transparent;color:{{ o.color }};font-size:13px">{{ o.label }}</button>
+</sc-for>
+</div>
+</div>
+<sc-if value="{{ isTransfer }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="font-size:12px;color:#9397ab">To</div>
+<div style="display:flex;flex-wrap:wrap;gap:6px">
+<sc-for list="{{ toChips }}" as="o" hint-placeholder-count="3">
+<button onClick="{{ o.onTap }}" style="flex:none;height:34px;padding:0 12px;border-radius:8px;border:1px solid {{ o.border }};background:transparent;color:{{ o.color }};font-size:13px">{{ o.label }}</button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+</div>
+</sc-if>
+<sc-if value="{{ showDatePicker }}" hint-placeholder-val="{{ false }}">
+<div style="margin:0 16px 8px;padding:10px;border-radius:8px;background:#161826;display:flex;gap:6px;align-items:center">
+<sc-for list="{{ dayChips }}" as="o" hint-placeholder-count="3">
+<button onClick="{{ o.onTap }}" style="flex:none;height:34px;padding:0 12px;border-radius:8px;border:1px solid {{ o.border }};background:transparent;color:{{ o.color }};font-size:13px">{{ o.label }}</button>
+</sc-for>
+<input type="date" max="2026-10-13" value="{{ customDate }}" onChange="{{ onDate }}" aria-label="Pick a date" style="flex:1;min-width:0;height:34px;padding:0 8px;border-radius:8px;border:1px solid {{ dateBorder }};background:transparent;color:{{ dateColor }};font:inherit;font-size:13px;color-scheme:dark">
+</div>
+</sc-if>
+<div style="display:grid;grid-template-columns:{{ keyCols }};gap:4px;padding:0 16px;margin-top:auto">
+<sc-for list="{{ keys }}" as="k" hint-placeholder-count="12">
+<button onClick="{{ k.onTap }}" style="height:{{ keyH }};border-radius:8px;border:none;background:{{ k.bg }};color:{{ k.color }};font-size:{{ k.size }};display:flex;align-items:center;justify-content:center" style-hover="background:#292b31" style-active="background:#3f424d"><i class="{{ k.icon }}"></i>{{ k.label }}</button>
+</sc-for>
+</div>
+<div style="padding:12px 16px 16px">
+<button onClick="{{ goNext }}" style="width:100%;height:48px;border-radius:8px;border:1px solid #9184d9;background:transparent;color:#d2cefd;font-size:16px;opacity:{{ nextBtnOpacity }}" style-hover="background:#2b2741">{{ nextLabel }}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ addStepCat }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:4px;padding:10px 8px 6px">
+<button onClick="{{ goBack }}" style="height:36px;padding:0 8px;border:none;background:transparent;color:#cfd3e5;font-size:15px;display:flex;align-items:center;gap:4px"><i class="ph ph-caret-left"></i>{{ amountDisplay }}</button>
+<div style="flex:1"></div>
+<div style="font-size:13px;color:#9397ab;padding-right:10px">{{ addMeta }}</div>
+</div>
+<div style="padding:0 16px 10px">
+<input placeholder="Note (optional)" value="{{ note }}" onChange="{{ onNote }}" style="width:100%;height:40px;padding:0 12px;border-radius:8px;border:1px solid #3f424d;background:#161826;color:#e9e9ed;font:inherit;font-size:14px">
+</div>
+<div style="flex:1;min-height:0;overflow-y:auto;padding:0 16px 16px;display:flex;flex-direction:column;gap:14px">
+<sc-for list="{{ pickGroups }}" as="g" hint-placeholder-count="4">
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#9397ab"><div style="width:8px;height:8px;border-radius:50%;background:{{ g.color }}"></div>{{ g.name }}</div>
+<div style="display:flex;flex-wrap:wrap;gap:6px">
+<sc-for list="{{ g.items }}" as="s" hint-placeholder-count="3">
+<button onClick="{{ s.onTap }}" style="height:44px;padding:0 14px;border-radius:8px;border:1px solid #3f424d;background:#161826;color:#e9e9ed;font-size:14px" style-hover="border-color:#9184d9" style-active="background:#2b2741">{{ s.name }}</button>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ isTxSheet }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;justify-content:flex-end;padding:10px 8px 0">
+<button onClick="{{ closeSheet }}" aria-label="Close" style="width:40px;height:40px;border:none;background:transparent;color:#cfd3e5;font-size:18px"><i class="ph ph-x"></i></button>
+</div>
+<div style="padding:0 20px 20px;display:flex;flex-direction:column;gap:6px">
+<div style="font-size:13px;color:#9397ab">{{ txd.kind }}</div>
+<div style="font-size:38px;font-weight:500;letter-spacing:-0.02em;color:{{ txd.color }}">{{ txd.amount }}</div>
+</div>
+<div style="margin:0 16px;border-radius:8px;background:#161826">
+<sc-for list="{{ txd.rows }}" as="r" hint-placeholder-count="4">
+<div style="display:flex;justify-content:space-between;gap:12px;min-height:44px;align-items:center;padding:0 12px;border-bottom:1px solid #292b31;font-size:14px">
+<div style="color:#9397ab">{{ r.k }}</div>
+<div style="text-align:right">{{ r.v }}</div>
+</div>
+</sc-for>
+</div>
+<div style="padding:20px 16px">
+<button onClick="{{ txd.del }}" style="width:100%;height:46px;border-radius:8px;border:1px solid oklch(0.66 0.12 30);background:transparent;color:oklch(0.8 0.09 30);font-size:15px" style-hover="background:rgba(220,110,90,0.1)">Delete transaction</button>
+</div>
+</sc-if>
+
+</div>
+</div>
+<sc-if value="{{ showFrameBits }}" hint-placeholder-val="{{ true }}">
+<div style="height:84px;display:flex;align-items:center;justify-content:center">
+<div style="width:54px;height:54px;border-radius:50%;border:2px solid #292b31"></div>
+</div>
+</sc-if>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;frame&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;showCents&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const TODAY = '2026-10-13';
+const YDAY = '2026-10-12';
+const HUES = [289, 215, 160, 85, 25, 330, 250, 120];
+const WARN = 'oklch(0.76 0.11 30)';
+const INC = '#d2cefd';
+const KEY = 'budget-tracker-v1';
+const MN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const col = i => 'oklch(0.74 0.09 ' + HUES[i % HUES.length] + ')';
+const mk = off => { const d = new Date(2026, 9 + off, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+const mlabel = (k, short) => { const [y, m] = k.split('-'); return short ? MN[m - 1].slice(0, 3) + ' ' + y : MN[m - 1] + ' ' + y; };
+const uid = p => p + Date.now().toString(36) + Math.floor(Math.random() * 1e4);
+const OPS = '+-*/';
+function evalExpr(s) {
+  let i = 0;
+  const peek = () => s[i];
+  const num = () => { const st = i; while (i < s.length && /[\d.]/.test(s[i])) i++; if (st === i) throw 0; const v = parseFloat(s.slice(st, i)); if (isNaN(v)) throw 0; return v; };
+  const factor = () => { if (peek() === '-') { i++; return -factor(); } if (peek() === '(') { i++; const v = expr(); if (peek() === ')') i++; return v; } return num(); };
+  const term = () => { let v = factor(); while (peek() === '*' || peek() === '/') { const o = s[i++]; const r = factor(); v = o === '*' ? v * r : v / r; } return v; };
+  const expr = () => { let v = term(); while (peek() === '+' || peek() === '-') { const o = s[i++]; const r = term(); v = o === '+' ? v + r : v - r; } return v; };
+  try { if (!s) return null; const v = expr(); if (i < s.length || !isFinite(v)) return null; return Math.round(v * 100) / 100; } catch (e) { return null; }
+}
+const pretty = s => s.replace(/\*/g, '×').replace(/\//g, '÷').replace(/-/g, '−');
+const nextK = k => { let [y, m] = k.split('-').map(Number); m++; if (m > 12) { m = 1; y++; } return y + '-' + String(m).padStart(2, '0'); };
+const spentIn = (D, catId, k) => D.tx.reduce((a, t) => t.type === 'expense' && t.catId === catId && t.date.startsWith(k) ? a + t.amount : a, 0);
+function carryFor(D, c, k) {
+  if (!c.rollover || !c.rollStart) return 0;
+  let carry = 0, m = c.rollStart, g = 0;
+  while (m < k && g++ < 600) { carry = budgetAt(c, m) + carry - spentIn(D, c.id, m); m = nextK(m); }
+  return Math.round(carry * 100) / 100;
+}
+const ACCT_TYPES = [['bank', 'Bank'], ['savings', 'Savings'], ['credit', 'Credit card'], ['cash', 'Cash'], ['investment', 'Investment'], ['loan', 'Loan']];
+const ACCT_ICON = { bank: 'ph ph-bank', savings: 'ph ph-piggy-bank', credit: 'ph ph-credit-card', cash: 'ph ph-money', investment: 'ph ph-chart-line-up', loan: 'ph ph-hand-coins' };
+const bOf = o => o.budgets && o.budgets.length ? o.budgets : [{ from: '0000-00', amount: +o.budget || 0 }];
+const budgetAt = (o, k) => { const L = bOf(o).slice().sort((a, b) => a.from.localeCompare(b.from)); let v = L[0].amount; L.forEach(e => { if (e.from <= k) v = e.amount; }); return v; };
+const setBudget = (o, k, v) => { o.budgets = bOf(o).filter(e => e.from < k).concat([{ from: k, amount: v }]); delete o.budget; };
+const offOf = d => (+d.slice(0, 4) - 2026) * 12 + (+d.slice(5, 7) - 10);
+const newAdd = D => ({ type: 'expense', amount: '', step: 'amount', picker: null, calc: false, accountId: (D.accounts[0] || {}).id, toAccountId: (D.accounts[1] || D.accounts[0] || {}).id, day: 'today', date: TODAY, note: '' });
+
+function seed() {
+  let s = 11; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  const accounts = [{ id: 'a1', name: 'Everyday', type: 'bank', opening: 2400 }, { id: 'a2', name: 'Savings', type: 'savings', opening: 8000 }, { id: 'a3', name: 'Credit card', type: 'credit', opening: 0 }, { id: 'a4', name: 'Wallet', type: 'cash', opening: 120 }];
+  const expense = [
+    { id: 'c1', name: 'Home', budget: 2300, subs: [{ id: 's1', name: 'Rent', budget: 1900, avg: 1900, n: 1 }, { id: 's2', name: 'Utilities', budget: 250, avg: 210, n: 1 }, { id: 's3', name: 'Internet', budget: 80, avg: 79, n: 1 }] },
+    { id: 'c2', name: 'Food', budget: 900, subs: [{ id: 's4', name: 'Groceries', budget: 600, avg: 140, n: 4 }, { id: 's5', name: 'Eating out', budget: 220, avg: 45, n: 4 }, { id: 's6', name: 'Coffee', budget: 80, avg: 5.5, n: 12 }] },
+    { id: 'c3', name: 'Transport', budget: 300, subs: [{ id: 's7', name: 'Fuel', budget: 180, avg: 70, n: 2 }, { id: 's8', name: 'Public transport', budget: 80, avg: 20, n: 3 }, { id: 's9', name: 'Parking', budget: 40, avg: 12, n: 2 }] },
+    { id: 'c4', name: 'Lifestyle', budget: 350, subs: [{ id: 's10', name: 'Subscriptions', budget: 60, avg: 18, n: 3 }, { id: 's11', name: 'Shopping', budget: 200, avg: 65, n: 2 }, { id: 's12', name: 'Gym', budget: 70, avg: 70, n: 1 }] },
+    { id: 'c5', name: 'Health', budget: 150, subs: [{ id: 's13', name: 'Medical', budget: 100, avg: 80, n: 0.5 }, { id: 's14', name: 'Pharmacy', budget: 50, avg: 22, n: 1 }] },
+  ];
+  const income = [{ id: 'i1', name: 'Salary' }, { id: 'i2', name: 'Side income' }, { id: 'i3', name: 'Interest' }];
+  const tx = []; let id = 1;
+  for (let off = -5; off <= 0; off++) {
+    const k = mk(off);
+    const add = (day, o) => { if (off === 0 && day > 13) return; tx.push(Object.assign({ id: 't' + (id++), date: k + '-' + String(day).padStart(2, '0'), note: '' }, o)); };
+    add(1, { type: 'income', amount: 2650, catId: 'i1', accountId: 'a1' });
+    add(15, { type: 'income', amount: 2650, catId: 'i1', accountId: 'a1' });
+    add(28, { type: 'income', amount: Math.round(25 + r() * 15), catId: 'i3', accountId: 'a2' });
+    add(2, { type: 'transfer', amount: 500, accountId: 'a1', toAccountId: 'a2' });
+    if (r() < 0.4) add(1 + Math.floor(r() * 27), { type: 'income', amount: 300, catId: 'i2', accountId: 'a1' });
+    expense.forEach(c => c.subs.forEach(sb => {
+      const n = Math.floor(sb.n) + (r() < sb.n % 1 ? 1 : 0);
+      for (let i = 0; i < n; i++) {
+        const fixed = ['s1', 's3', 's12'].includes(sb.id);
+        const day = sb.id === 's1' ? 1 : 1 + Math.floor(r() * 28);
+        const amt = fixed ? sb.avg : Math.round(sb.avg * (0.7 + 0.6 * r()) * 100) / 100;
+        add(day, { type: 'expense', amount: amt, catId: c.id, subId: sb.id, accountId: ['c2', 'c4'].includes(c.id) ? 'a3' : 'a1' });
+      }
+    }));
+  }
+  expense.forEach(c => c.subs.forEach(sb => { delete sb.avg; delete sb.n; }));
+  expense[1].rollover = true; expense[1].rollStart = mk(-2);
+  expense[3].rollover = true; expense[3].rollStart = mk(-1);
+  tx.sort((a, b) => b.date.localeCompare(a.date));
+  return { accounts, expense, income, tx };
+}
+
+function load() { try { const v = localStorage.getItem(KEY); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+
+class Component extends DCLogic {
+  state = { data: load() || seed(), tab: 'home', off: 0, sheet: null, add: null, txId: null, expanded: {}, setupOpen: {}, edit: null, adding: null, range: 'month' };
+
+  save(data, extra) { this.setState(Object.assign({ data }, extra || {})); try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {} }
+  upd(fn, extra) { const d = JSON.parse(JSON.stringify(this.state.data)); fn(d); this.save(d, extra); }
+
+  renderVals() {
+    const S = this.state, D = S.data, cents = this.props.showCents ?? true, frame = this.props.frame ?? true;
+    const cur = D.currency || 'AUD';
+    const mkF = d => { try { return new Intl.NumberFormat('en-AU', { style: 'currency', currency: cur, currencyDisplay: 'narrowSymbol', minimumFractionDigits: d, maximumFractionDigits: d }); } catch (e) { return new Intl.NumberFormat('en-AU', { style: 'currency', currency: cur, minimumFractionDigits: d, maximumFractionDigits: d }); } };
+    const F2 = mkF(cents && cur !== 'JPY' ? 2 : 0), F0 = mkF(0);
+    const f = n => F2.format(Math.abs(n)), f0 = n => F0.format(Math.abs(n));
+    const sym = (F0.formatToParts(0).find(p => p.type === 'currency') || {}).value || '$';
+    const sum = arr => arr.reduce((a, t) => a + t.amount, 0);
+    const k = mk(S.off);
+    const mtx = D.tx.filter(t => t.date.startsWith(k));
+    const exTx = mtx.filter(t => t.type === 'expense'), inTx = mtx.filter(t => t.type === 'income');
+    const income = sum(inTx), expense = sum(exTx);
+    const ci = {}; D.expense.forEach((c, i) => ci[c.id] = i);
+    const catOf = t => t.type === 'expense' ? D.expense.find(c => c.id === t.catId) : D.income.find(c => c.id === t.catId);
+    const subOf = (c, id) => c && c.subs ? c.subs.find(s => s.id === id) : null;
+    const acct = id => D.accounts.find(a => a.id === id);
+    const an = id => (acct(id) || {}).name || 'Deleted account';
+    const budgetTotal = D.expense.reduce((a, c) => a + budgetAt(c, k) + carryFor(D, c, k), 0);
+    const pkName = MN[+mk(S.off - 1).slice(5) - 1].slice(0, 3), curName = MN[9].slice(0, 3);
+    const sgn = n => (n < 0 ? '−' : '+') + f0(n);
+    const left = budgetTotal - expense;
+    const setS = o => this.setState(o);
+    const prevMonth = () => setS({ off: S.off - 1, edit: null });
+    const nextMonth = () => { if (S.off < 0) setS({ off: S.off + 1, edit: null }); };
+    const dotFor = t => t.type === 'income' ? '#9184d9' : (ci[t.catId] != null ? col(ci[t.catId]) : '#75798c');
+    const titleFor = t => { const c = catOf(t); const s = subOf(c, t.subId); return s ? s.name : c ? c.name : 'Uncategorised'; };
+    const dateLabel = d => { if (d === TODAY) return 'Today'; if (d === YDAY) return 'Yesterday'; const x = new Date(d + 'T00:00'); return DN[x.getDay()] + ' ' + x.getDate() + ' ' + MN[x.getMonth()].slice(0, 3); };
+
+    // home
+    const groups = [];
+    mtx.forEach(t => {
+      let g = groups[groups.length - 1];
+      if (!g || g.date !== t.date) { g = { date: t.date, label: dateLabel(t.date), items: [] }; groups.push(g); }
+      const c = catOf(t), tr = t.type === 'transfer', onTap = () => setS({ sheet: 'tx', txId: t.id });
+      if (tr) { g.items.push({ title: 'Transfer', meta: [an(t.accountId) + ' → ' + an(t.toAccountId), t.note || null].filter(Boolean).join(' · '), dot: '#595d6c', amount: f(t.amount), color: '#b2b6ca', onTap }); return; }
+      const meta = [t.type === 'expense' && c && subOf(c, t.subId) ? c.name : null, an(t.accountId), t.note || null].filter(Boolean).join(' · ');
+      g.items.push({ title: titleFor(t), meta, dot: dotFor(t), amount: (t.type === 'income' ? '+' : '−') + f(t.amount), color: t.type === 'income' ? INC : '#e9e9ed', onTap });
+    });
+    const accounts = D.accounts.map(a => { const b = a.opening + D.tx.filter(t => t.accountId === a.id).reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0) + D.tx.filter(t => t.type === 'transfer' && t.toAccountId === a.id).reduce((s, t) => s + t.amount, 0); return { id: a.id, type: a.type || 'bank', icon: ACCT_ICON[a.type || 'bank'], name: a.name, bal: b, balance: (b < 0 ? '−' : '') + f(b), color: b < 0 ? '#cfd3e5' : '#e9e9ed' }; });
+
+    // budgets
+    const ed = S.edit;
+    const budgets = D.expense.map((c, i) => {
+      const sp = sum(exTx.filter(t => t.catId === c.id)), base = budgetAt(c, k), cr = carryFor(D, c, k), b = base + cr, over = sp > b;
+      const started = c.rollover && c.rollStart && c.rollStart < k;
+      const subTotal = c.subs.reduce((a, s) => a + budgetAt(s, k), 0);
+      const isEd = ed && ed.kind === 'cat' && ed.catId === c.id;
+      return {
+        name: c.name, color: col(i), spent: f0(sp), budget: f0(base),
+        hasCarry: !!c.rollover, carryColor: cr < 0 ? WARN : '#d2cefd',
+        carryText: started ? sgn(cr) + ' from ' + pkName + ' · ' + (b < 0 ? '−' : '') + f0(b) + ' available' : 'Rollover starts this month',
+        bar: (b ? Math.min(100, sp / b * 100) : (sp ? 100 : 0)) + '%', barColor: over ? WARN : col(i),
+        remain: over ? f0(sp - b) + ' over' : f0(b - sp) + ' left', remainColor: over ? WARN : '#b2b6ca',
+        subCount: c.subs.length + (c.subs.length === 1 ? ' subcategory' : ' subcategories'),
+        expanded: !!S.expanded[c.id], caret: S.expanded[c.id] ? 'ph ph-caret-up' : 'ph ph-caret-down',
+        toggle: () => setS({ expanded: Object.assign({}, S.expanded, { [c.id]: !S.expanded[c.id] }) }),
+        editing: !!isEd, notEditing: !isEd,
+        startEdit: () => setS({ edit: { kind: 'cat', catId: c.id, value: String(base) } }),
+        subsWarn: subTotal > base, subsWarnText: 'Subcategory budgets add up to ' + f0(subTotal) + ', more than ' + f0(base) + '.',
+        subs: c.subs.map(s => {
+          const ssp = sum(exTx.filter(t => t.subId === s.id)), sb = budgetAt(s, k), sover = ssp > sb;
+          const sEd = ed && ed.kind === 'sub' && ed.subId === s.id;
+          return { name: s.name, spent: f0(ssp), budget: f0(sb), bar: (sb ? Math.min(100, ssp / sb * 100) : (ssp ? 100 : 0)) + '%', barColor: sover ? WARN : col(i), editing: !!sEd, notEditing: !sEd, startEdit: () => setS({ edit: { kind: 'sub', catId: c.id, subId: s.id, value: String(sb) } }) };
+        })
+      };
+    });
+    const commitEdit = () => {
+      const e = this.state.edit; if (!e) return;
+      const v = Math.max(0, parseFloat(e.value) || 0);
+      this.upd(d => { const c = d.expense.find(x => x.id === e.catId); if (!c) return; const kk = mk(this.state.off); if (e.kind === 'cat') setBudget(c, kk, v); else { const s = c.subs.find(x => x.id === e.subId); if (s) setBudget(s, kk, v); } }, { edit: null });
+    };
+
+    // reports
+    const byCatRaw = D.expense.map((c, i) => ({ name: c.name, color: col(i), v: sum(exTx.filter(t => t.catId === c.id)) })).filter(x => x.v > 0).sort((a, b) => b.v - a.v);
+    const maxC = byCatRaw.length ? byCatRaw[0].v : 1;
+    const byCat = byCatRaw.map(x => ({ name: x.name, amount: f0(x.v), pct: Math.round(x.v / expense * 100) + '%', width: (x.v / maxC * 100) + '%', color: x.color }));
+    const mList = [-5, -4, -3, -2, -1, 0].map(o => { const kk = mk(o); const t = D.tx.filter(x => x.date.startsWith(kk)); return { k: kk, inc: sum(t.filter(x => x.type === 'income')), exp: sum(t.filter(x => x.type === 'expense')), t }; });
+    const mMax = Math.max(1, ...mList.map(m => Math.max(m.inc, m.exp)));
+    const months = mList.map((m, i) => ({ label: MN[+m.k.split('-')[1] - 1].slice(0, 3), incH: Math.round(m.inc / mMax * 128) + 'px', expH: Math.round(m.exp / mMax * 128) + 'px', labelColor: i === 5 ? '#d2cefd' : '#9397ab' }));
+    const done = mList.slice(0, 5);
+    const aInc = done.reduce((a, m) => a + m.inc, 0) / 5, aExp = done.reduce((a, m) => a + m.exp, 0) / 5;
+    const catAvgs = D.expense.map((c, i) => { const av = done.reduce((a, m) => a + sum(m.t.filter(t => t.type === 'expense' && t.catId === c.id)), 0) / 5; return { name: c.name, color: col(i), avg: f0(av), avgColor: av > budgetAt(c, k) ? WARN : '#e9e9ed', budget: 'of ' + f0(budgetAt(c, k)) }; });
+    const opt = (label, on, onTap) => ({ label, onTap, border: on ? '#9184d9' : 'transparent', color: on ? '#d2cefd' : '#9397ab' });
+
+    // setup
+    const ad = S.adding;
+    const startAdd = (kind, parentId) => setS({ adding: { kind, parentId, value: '', value2: '', value3: 'bank' } });
+    const commitAdd = () => {
+      const a = this.state.adding; if (!a || !a.value.trim()) return setS({ adding: null });
+      const name = a.value.trim();
+      this.upd(d => {
+        if (a.kind === 'account') d.accounts.push({ id: uid('a'), name, type: a.value3 || 'bank', opening: parseFloat(a.value2) || 0 });
+        if (a.kind === 'cat') d.expense.push({ id: uid('c'), name, budget: 0, subs: [] });
+        if (a.kind === 'sub') { const c = d.expense.find(x => x.id === a.parentId); if (c) c.subs.push({ id: uid('s'), name, budget: 0 }); }
+        if (a.kind === 'income') d.income.push({ id: uid('i'), name });
+      }, { adding: null });
+    };
+    const isAdd = (kind, pid) => !!(ad && ad.kind === kind && (pid == null || ad.parentId === pid));
+
+    // add sheet
+    const A = S.add || newAdd(D);
+    const setA = o => setS({ add: Object.assign({}, A, o) });
+    const press = key => {
+      let v = A.amount; const last = v.slice(-1); const seg = v.split(/[+\-*/()]/).pop();
+      if (key === 'del') v = v.slice(0, -1);
+      else if (key === 'C') v = '';
+      else if (key === '=') { const r = evalExpr(v); if (r == null) return; v = r > 0 ? String(r) : ''; }
+      else if (OPS.includes(key)) { if (!v && key !== '-') return; if (last === '(' && key !== '-') return; if (OPS.includes(last)) v = v.slice(0, -1); v += key; }
+      else if (key === '(') { if (last && /[\d.)]/.test(last)) v += '*'; v += '('; }
+      else if (key === ')') { const open = (v.match(/\(/g) || []).length - (v.match(/\)/g) || []).length; if (open <= 0 || !last || OPS.includes(last) || last === '(') return; v += ')'; }
+      else if (key === '.') { if (seg.includes('.')) return; if (last === ')') v += '*'; v += seg ? '.' : '0.'; }
+      else { if (seg.includes('.') && seg.split('.')[1].length >= 2) return; if (seg.replace('.', '').length >= 7) return; if (last === ')') v += '*'; v = seg === '0' ? v.slice(0, -1) + key : v + key; }
+      if (v.length > 32) return;
+      setA({ amount: v });
+    };
+    const hasOp = /[+\-*/()]/.test(A.amount);
+    const live = evalExpr(A.amount.replace(/[+\-*/(]+$/, ''));
+    const amt = live && live > 0 ? live : 0;
+    const isTransfer = A.type === 'transfer';
+    const txDate = A.day === 'today' ? TODAY : A.day === 'yesterday' ? YDAY : A.date;
+    const saveTx = (catId, subId) => {
+      const t = { id: uid('t'), type: A.type, amount: Math.round(amt * 100) / 100, catId: catId || null, subId: subId || null, accountId: A.accountId, date: txDate, note: A.note.trim() };
+      if (isTransfer) t.toAccountId = A.toAccountId;
+      this.upd(d => { d.tx.push(t); d.tx.sort((a, b) => b.date.localeCompare(a.date)); }, { sheet: null, off: offOf(txDate), tab: S.tab === 'setup' ? 'home' : S.tab });
+    };
+    const pickGroups = A.type === 'expense'
+      ? D.expense.map((c, i) => ({ name: c.name, color: col(i), items: c.subs.length ? c.subs.map(s => ({ name: s.name, onTap: () => saveTx(c.id, s.id) })) : [{ name: c.name, onTap: () => saveTx(c.id) }] }))
+      : [{ name: 'Income', color: '#9184d9', items: D.income.map(c => ({ name: c.name, onTap: () => saveTx(c.id) })) }];
+    const KL = { '*': '×', '/': '÷', '-': '−' };
+    const keyList = A.calc ? ['C', '(', ')', '/', '7', '8', '9', '*', '4', '5', '6', '-', '1', '2', '3', '+', '.', '0', 'del', '='] : ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'del'];
+    const keys = keyList.map(x => { const op = OPS.includes(x), eq = x === '=', fn = x === 'C' || x === '(' || x === ')'; return { label: x === 'del' ? '' : (KL[x] || x), icon: x === 'del' ? 'ph ph-backspace' : '', onTap: () => press(x), bg: eq ? '#423a6a' : op ? '#2b2741' : 'transparent', color: eq ? '#e7e5fe' : op ? '#d2cefd' : fn ? '#b2b6ca' : '#e9e9ed', size: fn ? '19px' : '24px' }; });
+
+    // tx detail
+    const tx = S.txId ? D.tx.find(t => t.id === S.txId) : null;
+    let txd = { kind: '', amount: '', color: '#e9e9ed', rows: [], del: () => {} };
+    if (tx) {
+      const c = catOf(tx), s = subOf(c, tx.subId), a = acct(tx.accountId);
+      txd = {
+        kind: tx.type === 'income' ? 'Income' : tx.type === 'transfer' ? 'Transfer' : 'Expense', amount: (tx.type === 'income' ? '+' : tx.type === 'transfer' ? '' : '−') + f(tx.amount), color: tx.type === 'income' ? INC : '#e9e9ed',
+        rows: tx.type === 'transfer' ? [{ k: 'From', v: an(tx.accountId) }, { k: 'To', v: an(tx.toAccountId) }, { k: 'Date', v: dateLabel(tx.date) }].concat(tx.note ? [{ k: 'Note', v: tx.note }] : []) : [{ k: 'Category', v: c ? c.name : 'Uncategorised' }].concat(s ? [{ k: 'Subcategory', v: s.name }] : []).concat([{ k: 'Account', v: a ? a.name : 'Deleted account' }, { k: 'Date', v: dateLabel(tx.date) }]).concat(tx.note ? [{ k: 'Note', v: tx.note }] : []),
+        del: () => this.upd(d => { d.tx = d.tx.filter(x => x.id !== tx.id); }, { sheet: null })
+      };
+    }
+
+    const tab = (key, label, icon) => ({ label, icon: 'ph ' + icon, color: S.tab === key ? '#d2cefd' : '#75798c', onTap: () => setS({ tab: key, edit: null, adding: null }) });
+    const open = !!S.sheet;
+
+    return {
+      bezelPad: frame ? '0 20px' : '0', bezelRadius: frame ? '52px' : '0', bezelBg: frame ? '#0f1019' : 'transparent', bezelShadow: frame ? '0 0 0 1px #3f424d, 0 30px 80px rgba(0,0,0,0.5)' : 'none', showFrameBits: frame,
+      isHome: S.tab === 'home', isBudgets: S.tab === 'budgets', isReports: S.tab === 'reports', isSetup: S.tab === 'setup',
+      monthTitle: mlabel(k), monthShort: mlabel(k, true), prevMonth, nextMonth, nextOpacity: S.off < 0 ? 1 : 0.3,
+      leftLabel: left >= 0 ? 'Left to spend' : 'Over budget', leftAmount: f(left), leftColor: left >= 0 ? '#e9e9ed' : WARN,
+      spentBar: (budgetTotal ? Math.min(100, expense / budgetTotal * 100) : 0) + '%', spentBarColor: left >= 0 ? '#9184d9' : WARN,
+      spentOf: 'Spent ' + f0(expense) + ' of ' + f0(budgetTotal), incomeLabel: f0(income),
+      accounts, groups, noTx: mtx.length === 0,
+      budgets, spentTotalLabel: f0(expense), budgetTotalLabel: f0(budgetTotal),
+      editValue: ed ? ed.value : '', onEditValue: e => setS({ edit: Object.assign({}, this.state.edit, { value: e.target.value }) }), commitEdit,
+      editKey: e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setS({ edit: null }); },
+      focusRef: el => { if (el && document.activeElement !== el && !el.dataset.f) { el.dataset.f = '1'; el.focus(); if (el.select) el.select(); } },
+      rangeOpts: [opt('This month', S.range === 'month', () => setS({ range: 'month' })), opt('Last 6 months', S.range === '6m', () => setS({ range: '6m' }))],
+      isMonthRange: S.range === 'month', is6m: S.range === '6m',
+      stats: [{ label: 'Income', value: f0(income), color: INC }, { label: 'Spent', value: f0(expense), color: '#e9e9ed' }, { label: income - expense >= 0 ? 'Saved' : 'Shortfall', value: f0(income - expense), color: income - expense >= 0 ? '#e9e9ed' : WARN }],
+      byCat, noByCat: byCat.length === 0, months,
+      avgs: [{ label: 'Income', value: f0(aInc), color: INC }, { label: 'Spent', value: f0(aExp), color: '#e9e9ed' }, { label: 'Saved', value: f0(aInc - aExp), color: aInc - aExp >= 0 ? '#e9e9ed' : WARN }],
+      catAvgs,
+      accountRows: accounts.map((a, i) => ({ name: a.name, balance: a.balance, icon: a.icon,
+        typeLabel: (ACCT_TYPES.find(t => t[0] === a.type) || ACCT_TYPES[0])[1], typeOpen: S.typeOpen === a.id, typeCaret: S.typeOpen === a.id ? 'ph ph-caret-up' : 'ph ph-caret-down',
+        toggleType: () => setS({ typeOpen: S.typeOpen === a.id ? null : a.id }),
+        typeChips: ACCT_TYPES.map(([v, l]) => ({ label: l, icon: ACCT_ICON[v], border: a.type === v ? '#9184d9' : '#3f424d', color: a.type === v ? '#d2cefd' : '#b2b6ca', onTap: () => this.upd(d => { d.accounts[i].type = v; }, { typeOpen: null }) })), remove: () => this.upd(d => { d.accounts.splice(i, 1); }) })),
+      addingAccount: isAdd('account'), notAddingAccount: !isAdd('account'), startAddAccount: () => startAdd('account'),
+      addVal: ad ? ad.value : '', addVal2: ad ? ad.value2 : '', addVal3: ad ? ad.value3 : 'bank',
+      addTypeChips: ACCT_TYPES.map(([v, l]) => { const on = (ad ? ad.value3 : 'bank') === v; return { label: l, icon: ACCT_ICON[v], border: on ? '#9184d9' : '#3f424d', color: on ? '#d2cefd' : '#b2b6ca', onTap: () => setS({ adding: Object.assign({}, this.state.adding, { value3: v }) }) }; }),
+      onAddVal: e => setS({ adding: Object.assign({}, this.state.adding, { value: e.target.value }) }),
+      onAddVal2: e => setS({ adding: Object.assign({}, this.state.adding, { value2: e.target.value }) }),
+      addKey: e => { if (e.key === 'Enter') commitAdd(); if (e.key === 'Escape') setS({ adding: null }); }, commitAdd,
+      catRows: D.expense.map((c, i) => ({
+        name: c.name, color: col(i), subCount: String(c.subs.length), expanded: !!S.setupOpen[c.id], caret: S.setupOpen[c.id] ? 'ph ph-caret-up' : 'ph ph-caret-down',
+        toggle: () => setS({ setupOpen: Object.assign({}, S.setupOpen, { [c.id]: !S.setupOpen[c.id] }) }),
+        remove: () => this.upd(d => { d.expense = d.expense.filter(x => x.id !== c.id); }),
+        rollover: !!c.rollover,
+        rollNote: !c.rollover ? 'Unspent budget resets each month' : (c.rollStart >= mk(0) ? 'Starts fresh this month' : 'Carrying ' + sgn(carryFor(D, c, mk(0))) + ' into ' + curName),
+        rollNoteColor: c.rollover && carryFor(D, c, mk(0)) < 0 ? WARN : '#9397ab',
+        rollBorder: c.rollover ? '#9184d9' : '#3f424d', rollBg: c.rollover ? '#2b2741' : '#161826',
+        knobLeft: c.rollover ? '21px' : '3px', knobBg: c.rollover ? '#d2cefd' : '#75798c',
+        toggleRoll: () => this.upd(d => { const cc = d.expense.find(x => x.id === c.id); cc.rollover = !cc.rollover; if (cc.rollover) cc.rollStart = mk(-1); }),
+        resetRoll: () => this.upd(d => { const cc = d.expense.find(x => x.id === c.id); cc.rollStart = mk(0); }),
+        subs: c.subs.map(s => ({ name: s.name, remove: () => this.upd(d => { const cc = d.expense.find(x => x.id === c.id); cc.subs = cc.subs.filter(x => x.id !== s.id); }) })),
+        addingSub: isAdd('sub', c.id), notAddingSub: !isAdd('sub', c.id), startAddSub: () => startAdd('sub', c.id)
+      })),
+      addingCat: isAdd('cat'), notAddingCat: !isAdd('cat'), startAddCat: () => startAdd('cat'),
+      incomeRows: D.income.map(c => ({ name: c.name, remove: () => this.upd(d => { d.income = d.income.filter(x => x.id !== c.id); }) })),
+      addingIncome: isAdd('income'), notAddingIncome: !isAdd('income'), startAddIncome: () => startAdd('income'),
+      startFresh: () => { if (confirm('Delete all transactions? Accounts, categories and budgets stay.')) this.upd(d => { d.tx = []; }); },
+      resetSample: () => { if (confirm('Replace everything with sample data?')) this.save(seed(), { expanded: {}, setupOpen: {} }); },
+      leftTabs: [tab('home', 'Home', 'ph-house'), tab('budgets', 'Budgets', 'ph-target')],
+      rightTabs: [tab('reports', 'Reports', 'ph-chart-bar'), tab('setup', 'Setup', 'ph-gear-six')],
+      openAdd: () => setS({ sheet: 'add', add: newAdd(D), edit: null }),
+      closeSheet: () => setS({ sheet: null }),
+      backdropOpacity: open ? 1 : 0, backdropEvents: open ? 'auto' : 'none', sheetTransform: open ? 'translateY(0)' : 'translateY(105%)',
+      sheetTop: S.sheet === 'tx' ? '230px' : '28px',
+      addStepAmount: S.sheet === 'add' && A.step === 'amount', addStepCat: S.sheet === 'add' && A.step === 'cat', isTxSheet: S.sheet === 'tx',
+      typeOpts: [opt('Expense', A.type === 'expense', () => setA({ type: 'expense' })), opt('Income', A.type === 'income', () => setA({ type: 'income' })), opt('Transfer', isTransfer, () => setA({ type: 'transfer' }))],
+      isTransfer, acctLabel: isTransfer ? 'From' : 'Account', toChips: D.accounts.map(a => opt(a.name, A.toAccountId === a.id, () => setA({ toAccountId: a.id, picker: null }))),
+      acctPillLabel: isTransfer ? an(A.accountId) + ' → ' + an(A.toAccountId) : an(A.accountId),
+      acctPillBorder: A.picker === 'acct' ? '#9184d9' : (isTransfer && A.accountId === A.toAccountId ? WARN : '#3f424d'),
+      datePillLabel: dateLabel(txDate), datePillBorder: A.picker === 'date' ? '#9184d9' : '#3f424d',
+      showAcctPicker: A.picker === 'acct', showDatePicker: A.picker === 'date',
+      toggleAcctPicker: () => setA({ picker: A.picker === 'acct' ? null : 'acct' }),
+      toggleDatePicker: () => setA({ picker: A.picker === 'date' ? null : 'date' }),
+      toggleCalc: () => { if (A.calc) { const r = evalExpr(A.amount.replace(/[+\-*/(]+$/, '')); setA({ calc: false, amount: hasOp ? (r && r > 0 ? String(r) : '') : A.amount }); } else setA({ calc: true }); },
+      calcBorder: A.calc ? '#9184d9' : '#3f424d', calcBg: A.calc ? '#2b2741' : 'transparent', calcColor: A.calc ? '#d2cefd' : '#9397ab',
+      keyCols: A.calc ? 'repeat(4,1fr)' : 'repeat(3,1fr)', keyH: A.calc ? '46px' : '54px',
+      exprLine: hasOp ? pretty(A.amount) : '', customDate: A.day === 'custom' ? A.date : '',
+      onDate: e => { const v = e.target.value; if (v) setA({ day: 'custom', date: v > TODAY ? TODAY : v, picker: null }); },
+      dateBorder: A.day === 'custom' ? '#9184d9' : '#3f424d', dateColor: A.day === 'custom' ? '#d2cefd' : '#9397ab',
+      currency: cur, onCurrency: e => { const v = e.target.value; this.upd(d => { d.currency = v; }); },
+      amountDisplay: hasOp ? f(amt) : sym + (A.amount || '0'), amountColor: A.amount ? (A.type === 'income' ? INC : '#e9e9ed') : '#595d6c',
+      accountChips: D.accounts.map(a => opt(a.name, A.accountId === a.id, () => setA(isTransfer ? { accountId: a.id } : { accountId: a.id, picker: null }))),
+      dayChips: [opt('Today', A.day === 'today', () => setA({ day: 'today', picker: null })), opt('Yesterday', A.day === 'yesterday', () => setA({ day: 'yesterday', picker: null }))],
+      keys, nextLabel: isTransfer ? 'Save transfer' : 'Choose category',
+      goNext: () => { if (!(amt > 0)) return; if (isTransfer) { if (A.accountId !== A.toAccountId) saveTx(); } else setA({ step: 'cat' }); },
+      nextBtnOpacity: amt > 0 && (!isTransfer || A.accountId !== A.toAccountId) ? 1 : 0.4,
+      goBack: () => setA({ step: 'amount' }), note: A.note, onNote: e => setA({ note: e.target.value }),
+      addMeta: [(acct(A.accountId) || {}).name, dateLabel(txDate)].filter(Boolean).join(' · '),
+      pickGroups, txd
+    };
+  }
+}
+</script>
+</body>
+</html>
