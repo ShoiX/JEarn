@@ -3,8 +3,7 @@
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import net from 'node:net';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -12,10 +11,12 @@ const DIST = resolve(dirname(fileURLToPath(import.meta.url)), '../dist');
 const CHROME = process.env.CHROME ?? '/usr/bin/google-chrome';
 if (!existsSync(join(DIST, 'index.html'))) { console.error('dist/ missing: run `npm run build` first'); process.exit(2); }
 
-const work = mkdtempSync(join(tmpdir(), 'jearn-e2e-'));
+// Test output (screenshots, exported files) goes to .e2e/ in the repo (git-ignored), cleared each run.
+const work = resolve(DIST, '../.e2e');
+rmSync(work, { recursive: true, force: true });
 const SHOTS = join(work, 'shots');
 const profile = join(work, 'profile');
-for (const d of [SHOTS, profile]) mkdirSync(d);
+for (const d of [SHOTS, profile]) mkdirSync(d, { recursive: true });
 
 // ---------- results ----------
 const results = [];
@@ -929,7 +930,7 @@ await sleep(300);
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
 console.log(`Screenshots: ${SHOTS}`);
-console.log(`Temp files (export, tampered imports): ${work}`);
+console.log(`Test files (export, tampered imports): ${work}`);
 if (failed.length) {
   console.log('\nFAILED:'); for (const f of failed) console.log(`  - ${f.name}: ${f.detail}`);
   process.exit(1);
