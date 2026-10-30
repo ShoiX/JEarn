@@ -1,14 +1,14 @@
 # JEarn — Server Backup
 
 ## Future: Server Backup (design for it now, build later)
-Planned approach: **one-way backup** from the app to the owner's private cloud server over HTTPS. Not two-way sync. No iCloud/CloudKit (it would require a paid Apple Developer account) and no third-party SDK (use `URLSession`).
+Planned approach: **one-way backup** from the app to the owner's private cloud server over HTTPS. Not two-way sync. No iCloud/CloudKit and no third-party SDK (use `fetch`).
 
 **Scope: data only.** Back up accounts, expense/income categories, subcategories, budgets, the full ledger (including voided entries and their reversals) and the currency setting. Nothing else leaves the device — no UI state (selected tab, viewed month, open sheets, drafts), no analytics, no logs, no device info.
 
 **How it will work**
-- **When:** on app launch and when the app moves to the background (`scenePhase`), only if data changed since the last backup. No background tasks. Never blocks the UI; failures retry silently on the next trigger.
+- **When:** on app launch and when the app is hidden (`visibilitychange`), only if data changed since the last backup. No background sync. Never blocks the UI; failures retry silently on the next trigger.
 - **What:** a full JSON snapshot (not incremental), sent via `POST /backup`. The ledger is append-only, so each snapshot is a superset of the last; the server can reject a snapshot that alters or drops existing entries.
-- **Auth:** HTTPS only; a per-device bearer token entered once in Setup and stored in the Keychain.
+- **Auth:** HTTPS only; a per-device bearer token entered once in Setup and stored on the device (IndexedDB). The server must allow CORS from the app's origin only.
 - **Restore:** Setup → “Restore from server”, only available when the local ledger is empty (fresh install).
 - The same JSON format is used by the manual **Export / Import** in Setup (v1, see Setup in [product.md](product.md)).
 
@@ -23,7 +23,7 @@ Planned approach: **one-way backup** from the app to the owner's private cloud s
 - Use **UUID** ids generated on device (not incrementing integers).
 - Follow the [ledger rules](ledger.md): append-only entries, integer minor units, archive instead of delete.
 - Reference data (accounts, categories, budgets, settings) keeps a `createdAt` and `updatedAt`.
-- Give model properties defaults or make them optional, to keep SwiftData migrations painless.
+- Give stored fields defaults or make them optional, and version the IndexedDB schema, to keep migrations painless.
 - Keep snapshot encode/decode in one place, separate from the UI.
 
 **Server side (out of scope for the app)**

@@ -2,24 +2,26 @@
 
 Screens and behaviour. Ledger rules and data model: [ledger.md](ledger.md). Visual style: [design.md](design.md). Future backup: [backup.md](backup.md).
 
-**App name:** JEarn (home-screen display name `JEarn`, `CFBundleDisplayName`). Logo directions: `../prototype/JEarn Logo.dc.html`.
+**App name:** JEarn (home-screen name `JEarn`, from the web app manifest `short_name`). Logo directions: `../prototype/JEarn Logo.dc.html`.
 
 ## Overview
-A single-user budget tracker for iPhone SE (2nd gen, 2020 — 375×667 pt, Home button, no notch). Features: multiple accounts, expense categories with subcategories, income categories, monthly budgets per category and subcategory, transfers between accounts, custom transaction dates, an optional calculator on amount entry, currency selection, and a small reporting dashboard.
+A single-user budget tracker, delivered as an offline-first Progressive Web App ([decision 004](../decisions/004-pwa-instead-of-native.md)) and installed from Safari with Add to Home Screen. Target device: iPhone SE (2nd gen, 2020 — 375×667 CSS px, no notch). Features: multiple accounts, expense categories with subcategories, income categories, monthly budgets per category and subcategory, transfers between accounts, custom transaction dates, an optional calculator on amount entry, currency selection, and a small reporting dashboard.
 
 ## About the Design Files
-`../prototype/Budget Tracker.dc.html` is a **design reference built in HTML** — a working prototype showing intended look and behaviour, not production code. Recreate it natively. Recommended stack (no existing codebase): **SwiftUI**, iOS 17+, **SwiftData** for local persistence, no backend, no login. Open the HTML file in a browser (keep `support.js` next to it) to click through every flow. The logic class at the bottom of the file (`class Component`) contains the reference implementation of all calculations.
+`../prototype/Budget Tracker.dc.html` is a **design reference built in HTML** — a working prototype showing intended look and behaviour, not production code. Rebuild it cleanly in the app stack: **TypeScript + Preact**, IndexedDB for local persistence, no backend, no login. Open the HTML file in a browser (keep `support.js` next to it) to click through every flow. The logic class at the bottom of the file (`class Component`) contains the reference implementation of all calculations.
 
 ## Footprint Requirements
-The app must stay minimal: target **≤ 5 MB installed**, fully offline, no background activity.
-- **No third-party dependencies** — no Swift packages, CocoaPods, analytics, crash reporting or Firebase.
-- **System font only** (SF Pro). Do not bundle Inter.
-- **SF Symbols only.** Do not bundle the Phosphor icon set (see mapping below).
-- **Charts:** Swift Charts or plain SwiftUI shapes. No chart libraries.
-- **Storage:** SwiftData on-device. No backend, no login, no network calls.
-- **No background tasks**, push notifications or location access.
+The app must stay minimal: target **≤ 200 KB** of app files (gzipped), fully offline after the first load, no background activity.
+- **No runtime dependencies except Preact** — no UI kits, analytics, crash reporting, Firebase or CDNs. Dev tools (Vite, Vitest, TypeScript) are fine.
+- **System font only** (`-apple-system`, i.e. SF Pro on iPhone). Do not bundle Inter or any web font.
+- **Icons:** a small set of inline SVGs drawn in the SF Symbols style (see [design.md](design.md)). No icon fonts or packs.
+- **Charts:** plain SVG/CSS. No chart libraries.
+- **Storage:** IndexedDB on-device; request persistent storage (`navigator.storage.persist()`). No backend, no login. The only network use is loading/updating the app files.
+- **Offline:** a hand-written service worker caches the app shell. No push notifications, background sync or location access.
 - **Backup to a private server is planned for a later version** — not built in v1, but v1 must be backup-ready (see [backup.md](backup.md)). v1 itself makes no network calls.
 - Expected data size: ~100–200 bytes per transaction (≈1–2 MB after years of daily use).
+
+Sizes given in pt are CSS px (1:1 on iPhone).
 
 ## Navigation
 Bottom tab bar, 52pt tall, 5 slots: Home · Budgets · [+] · Reports · Setup. The centre [+] is not a tab — it opens the Add Transaction sheet. Active tab tint `#D2CEFD`, inactive `#75798C`, label 10pt.
@@ -56,7 +58,7 @@ Grouped lists (bg `#232532`, radius 8, rows ≥48pt, 1pt `#292B31` separators):
 - Income categories: list + add/archive.
 - Currency: "Ledger currency" with a picker (PHP, AUD, USD, EUR, GBP, NZD, CAD, SGD, JPY, INR); **default PHP (₱)**. JPY has 0 minor digits, the rest 2. **Locked once the first entry exists** (amounts are stored in minor units of this currency).
 - Footer: "Load sample data", only when the ledger is empty (confirm first). No "Clear transactions": the ledger is never erased in-app.
-- Data: "Export data" (JSON snapshot, format in [backup.md](backup.md), via the Files app share sheet) / "Import data" (only when the ledger is empty).
+- Data: "Export data" (JSON snapshot, format in [backup.md](backup.md); uses the share sheet via `navigator.share` with a file, falling back to a download) / "Import data" (file picker; only when the ledger is empty).
 
 ### 5. Add Transaction sheet (from +)
 Sheet from top 28pt, bg `#232532`, top radius 14, slides up 260ms `cubic-bezier(.2,.8,.2,1)`; backdrop black 55%, tap to dismiss.
@@ -66,7 +68,7 @@ Sheet from top 28pt, bg `#232532`, top radius 14, slides up 260ms `cubic-bezier(
 - Amount display, right-aligned: optional expression line (14pt muted, e.g. "(12+3)×2") above the value (40pt/500; placeholder colour `#595D6C` when empty).
 - One row of compact pills: [wallet Account ⌄] [calendar Today ⌄] … [calculator toggle]. Pills 34pt, radius 8, 1pt `#3F424D` border (accent when open).
   - Account pill opens an inline panel (bg `#161826`, radius 8) with account chips; closes on pick. In Transfer mode the pill reads "From → To", the panel shows From and To rows, closes after picking To; border turns warn if From = To.
-  - Date pill opens a panel: Today, Yesterday, and a native date picker (max = today). Closes on pick.
+  - Date pill opens a panel: Today, Yesterday, and a native `<input type="date">` (max = today). Closes on pick.
   - Calculator toggle: off = 3-column keypad (1–9, ., 0, ⌫; keys 54pt). On = 4-column keypad (C ( ) ÷ / 7 8 9 × / 4 5 6 − / 1 2 3 + / . 0 ⌫ =; keys 46pt; operator keys bg `#2B2741` text `#D2CEFD`; = bg `#423A6A`). Turning it off evaluates any expression into a plain amount.
 - Primary button (full width, 48pt, outline accent): "Choose category" — or "Save transfer" in Transfer mode. Disabled (40%) until amount > 0 (and From ≠ To).
 
@@ -86,7 +88,7 @@ Sheet from top 230pt. Kind label (Expense/Income/Transfer), amount 38pt, detail 
 - Account balance = Σ debits − Σ credits for asset accounts; for liability accounts (credit card, loan) = Σ credits − Σ debits, shown as amount owed. All time.
 - Transfers are excluded from income/expense totals and reports.
 - Accounts and categories are archived, never deleted; their entries keep showing the original name.
-- Persist everything locally (prototype uses localStorage key `budget-tracker-v1`).
+- Persist everything locally in IndexedDB (database `jearn`); writes happen immediately, so closing the app never loses data. The prototype's `localStorage` key is not used.
 
 ## State (per screen)
 tab, month offset, expanded categories, inline budget edit {kind, ids, value}, inline add form {kind, parentId, values}, report range, sheet (add|tx), add draft {type, amount expression, step, accountId, toAccountId, day/date, note, catId, subId, picker open, calc on}.

@@ -16,9 +16,9 @@ The prototype edits and deletes records freely; **these rules override it.**
 - Account classes: bank, savings, cash, investment = **asset**; credit card, loan = **liability**; expense/income categories = **expense/income**; one built-in **equity** account "Opening Balances" (fixed id).
 - **Voiding** posts a `reversal` entry with `reverses = original.id`, the same `date` and amount as the original (so past months net to zero). An entry can be voided once; reversals cannot be voided.
 - **Two dates:** `date` = the calendar day it happened (user-chosen, may be backdated, never after today in the device's time zone); `recordedAt` = the instant it was entered (system clock, never changes). `seq` = local monotonic counter giving the posting order, starting at 1.
-- **Calendar days are time-zone independent:** `date` is stored as 00:00 UTC of the chosen year-month-day, and all month/day bucketing uses the UTC Gregorian calendar. An entry made on 31 Oct stays in October even if the phone later changes time zone. Only "what is today" uses the device time zone.
+- **Calendar days are time-zone independent:** `date` is stored as a plain calendar day string `YYYY-MM-DD` (no time, no zone), and all month/day bucketing works on that string. An entry made on 31 Oct stays in October even if the phone later changes time zone. Only "what is today" uses the device time zone.
 - **Opening entries** are posted through a helper that picks the direction from the account class (see table), so callers never choose debit/credit by hand.
-- **Money:** integer minor units (`Int64`, cents) in the single ledger currency (ISO 4217). Use `Decimal` only for calculator input and display formatting, then round to the nearest minor unit (half away from zero). Amount entry allows as many decimals as the currency has minor digits (0 for JPY).
+- **Money:** integer minor units (cents; a JS safe integer) in the single ledger currency (ISO 4217). Never use floating point for money: calculator input is evaluated with exact fractions, then rounded to the nearest minor unit (half away from zero). Amount entry allows as many decimals as the currency has minor digits (0 for JPY).
 - Correcting an opening balance: void the opening entry and post a new one (Setup → account → "Correct opening balance").
 
 ## Data Model
@@ -27,16 +27,16 @@ The prototype edits and deletes records freely; **these rules override it.**
 Account      { id, name, type: bank|savings|credit|cash|investment|loan, archivedAt?, createdAt, updatedAt }
 ExpenseCat   { id, name, budgets: [BudgetEntry], rollover: Bool = false, rollStart: YYYY-MM?, subs: [SubCat], archivedAt?, createdAt, updatedAt }
 SubCat       { id, name, budgets: [BudgetEntry], archivedAt?, createdAt, updatedAt }
-BudgetEntry  { from: YYYY-MM, amountMinor: Int64 }
+BudgetEntry  { from: YYYY-MM, amountMinor: integer }
 IncomeCat    { id, name, archivedAt?, createdAt, updatedAt }
 Settings     { currency: ISO 4217 code (default PHP; locked once the ledger has entries) }
 
 // Ledger — append-only, never updated or deleted
-Entry        { id, seq: Int64, kind: expense|income|transfer|opening|reversal,
-               date: Date, recordedAt: Date,
+Entry        { id, seq: integer, kind: expense|income|transfer|opening|reversal,
+               date: YYYY-MM-DD, recordedAt: ISO 8601 UTC timestamp,
                debitId, creditId,          // ids of Account / ExpenseCat / SubCat / IncomeCat / Opening Balances
-               amountMinor: Int64 (> 0),
+               amountMinor: integer (> 0),
                note, reverses: id? }
 ```
-Money is integer minor units (`Int64`). An entry is voided if a reversal entry references it. The Home list shows expense/income/transfer entries that are not voided.
+Money is integer minor units. Ids are UUIDs (`crypto.randomUUID()`). An entry is voided if a reversal entry references it. The Home list shows expense/income/transfer entries that are not voided.
 

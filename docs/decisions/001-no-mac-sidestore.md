@@ -1,6 +1,6 @@
 # 001 — Build without a Mac; install with SideStore
 
-**Status:** Accepted (2026-10-27)
+**Status:** Superseded by [004](004-pwa-instead-of-native.md) (2026-10-30)
 
 **Context:** The app must be native (SwiftUI) and cost $0. Development happens on Linux, and there is no Mac. Native iOS builds need Xcode, which only runs on macOS. Without a paid Apple Developer account, sideloaded apps expire after 7 days.
 
