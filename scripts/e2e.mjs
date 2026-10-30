@@ -234,7 +234,7 @@ flow('Fresh start', async () => {
   check('home: next-month button disabled on current month', await ev(`document.querySelector('.monthnav [aria-label="Next month"]').disabled`));
   has('home: empty accounts hint', await body(), 'Add an account in Setup.');
   has('home: empty transactions hint', await body(), 'No transactions this month. Tap + to add one.');
-  has('home: Left to spend label', await body(), 'Left to spend');
+  has('home: Spent this month label (no budgets yet)', await body(), 'Spent this month');
   const d = await dump();
   eq('db: no accounts on fresh install', d.accounts.length, 0);
   eq('db: no entries on fresh install', d.entries.length, 0);
@@ -517,9 +517,10 @@ flow('Add transactions', async () => {
 flow('Home summary and month switcher', async () => {
   await tab('Home');
   const spent = 12500 + 20000 + (yestThis ? 3000 : 0);
-  has('summary: spent / income line', await text('.summary .sub13'), `Spent ${php(spent)} of ${php(0)}`);
+  has('summary: no budgets line', await text('.summary .sub13'), 'No budgets set yet');
   has('summary: income', await text('.summary .sub13'), `Income ${php(500000)}`);
-  eq('summary: over budget with no budgets', await text('.summary .muted13'), 'Over budget');
+  eq('summary: neutral "Spent this month" with no budgets', await text('.summary .muted13'), 'Spent this month');
+  check('summary: not warn-coloured and no bar with no budgets', await ev(`!document.querySelector('.summary .big').classList.contains('warn') && !document.querySelector('.summary .bar')`));
   eq('summary amount', await text('.summary .big'), php(spent));
   const labels = await texts('.section-h.day');
   check('group labels: Today first', labels[0] === 'Today', labels.join(','));

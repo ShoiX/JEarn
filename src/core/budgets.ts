@@ -44,3 +44,7 @@ export const available = (l: Ledger, c: ExpenseCategory, month: YearMonth) =>
 /** Left to spend = total available − month expenses. */
 export const leftToSpend = (l: Ledger, cats: readonly ExpenseCategory[], month: YearMonth) =>
   cats.reduce((s, c) => s + available(l, c, month), 0) - totalSpent(l, cats, month);
+
+/** True once any category has a non-zero budget for the month (Home shows plain spending until then). */
+export const hasBudgets = (cats: readonly ExpenseCategory[], month: YearMonth) =>
+  cats.some((c) => budgetAt(c.budgets, month) > 0);

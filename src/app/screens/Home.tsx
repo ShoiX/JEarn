@@ -1,5 +1,5 @@
 import {
-  accountClass, active, barPercent, categoriesInView, formatMoney, homeSections, income, leftToSpend, monthLabel, nextMonth,
+  accountClass, active, barPercent, categoriesInView, formatMoney, hasBudgets, homeSections, income, leftToSpend, monthLabel, nextMonth,
   previousMonth, available, totalSpent, type YearMonth,
 } from '../../core';
 import { useApp } from '../ctx';
@@ -13,7 +13,8 @@ export function Home({ month, setMonth, openTx }: { month: YearMonth; setMonth: 
   const spent = totalSpent(ledger, cats, month);
   const left = leftToSpend(ledger, cats, month);
   const total = cats.reduce((s, x) => s + available(ledger, x, month), 0);
-  const over = left < 0;
+  const budgeted = hasBudgets(cats, month);
+  const over = budgeted && left < 0;
   const sections = homeSections(ledger, month, dir, today, c);
   const byId = new Map(ledger.entries.map((e) => [e.id, e]));
   const thisMonth = today.slice(0, 7);
@@ -25,11 +26,11 @@ export function Home({ month, setMonth, openTx }: { month: YearMonth; setMonth: 
         <MonthNav variant="round" title="" onPrev={() => setMonth(previousMonth(month))} onNext={() => setMonth(nextMonth(month))} nextDisabled={month >= thisMonth} />
       </div>
       <div class="summary">
-        <div class="muted13">{over ? 'Over budget' : 'Left to spend'}</div>
-        <div class={'big' + (over ? ' warn' : '')}>{formatMoney(c, Math.abs(left))}</div>
-        <div class="bar"><i style={{ width: barPercent(spent, total) + '%' }} class={over ? 'warnbg' : ''} /></div>
+        <div class="muted13">{!budgeted ? 'Spent this month' : over ? 'Over budget' : 'Left to spend'}</div>
+        <div class={'big' + (over ? ' warn' : '')}>{formatMoney(c, budgeted ? Math.abs(left) : spent)}</div>
+        {budgeted && <div class="bar"><i style={{ width: barPercent(spent, total) + '%' }} class={over ? 'warnbg' : ''} /></div>}
         <div class="row between sub13">
-          <span>Spent {formatMoney(c, spent)} of {formatMoney(c, total)}</span>
+          <span>{budgeted ? <>Spent {formatMoney(c, spent)} of {formatMoney(c, total)}</> : 'No budgets set yet'}</span>
           <span>Income {formatMoney(c, income(ledger, incomeCategories, month))}</span>
         </div>
       </div>

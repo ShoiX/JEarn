@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { newExpenseCategory, newIncomeCategory, newSubCategory, type BudgetEntry } from './accounts';
 import {
+  hasBudgets,
   available, budgetAt, carryover, income, leftToSpend, setBudget, spent, spentSub, totalSpent,
 } from './budgets';
 import { Ledger, OPENING_BALANCES_ID } from './ledger';
@@ -101,5 +102,19 @@ describe('rollover', () => {
     expect(carryover(f.ledger, cat, ym(2026, 4))).toBe(300); // Jan 0 + Feb 100 + Mar 200
     f.ledger.void(e.id, now);
     expect(carryover(f.ledger, cat, ym(2026, 4))).toBe(400); // Jan 100, Feb 100, Mar 200
+  });
+});
+
+describe('hasBudgets (Home shows "Spent this month" until a budget is set)', () => {
+  it('is false when no category has a budget for the month', () => {
+    expect(hasBudgets([newExpenseCategory('Food'), newExpenseCategory('Bills')], ym(2026, 11))).toBe(false);
+  });
+  it('is true once any category has a non-zero budget', () => {
+    const food = newExpenseCategory('Food', { budgets: [{ from: ym(2026, 11), amountMinor: 500000 }] });
+    expect(hasBudgets([newExpenseCategory('Bills'), food], ym(2026, 11))).toBe(true);
+  });
+  it('ignores budgets set back to zero', () => {
+    const food = newExpenseCategory('Food', { budgets: [{ from: ym(2026, 10), amountMinor: 500000 }, { from: ym(2026, 11), amountMinor: 0 }] });
+    expect(hasBudgets([food], ym(2026, 11))).toBe(false);
   });
 });
