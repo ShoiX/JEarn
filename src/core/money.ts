@@ -16,7 +16,8 @@ export const currencyByCode = (code: string) => CURRENCIES.find((c) => c.code ==
 export const isMinor = (n: unknown): n is number => typeof n === 'number' && Number.isSafeInteger(n);
 
 const SYMBOLS: Record<string, string> = { EUR: '€', GBP: '£', JPY: '¥', INR: '₹', PHP: '₱' };
-const symbol = (c: Currency) => SYMBOLS[c.code] ?? '$';
+export const currencySymbol = (c: Currency) => SYMBOLS[c.code] ?? '$';
+const symbol = currencySymbol;
 const MINUS = '−';
 
 /** Whole and fractional parts of a non-negative minor amount. */

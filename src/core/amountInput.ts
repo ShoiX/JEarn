@@ -67,3 +67,10 @@ export function calculatorOff(expression: string, currency: Currency): string {
   const r = liveAmount(expression, currency);
   return r > 0 ? plainAmount(currency, r) : '';
 }
+
+/** Display form of an expression: "(12+3)*2" -> "(12+3)×2". */
+export const prettyExpression = (expression: string): string =>
+  expression.replaceAll('*', '×').replaceAll('/', '÷').replaceAll('-', '−');
+
+/** True when the expression contains any operator or parenthesis. */
+export const hasOperators = (expression: string): boolean => [...expression].some((c) => SEPARATORS.includes(c));
