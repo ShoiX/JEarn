@@ -66,7 +66,7 @@ export const putExpenseCat = (db: IDBDatabase, c: ExpenseCategory) => put(db, EX
 export const putIncomeCat = (db: IDBDatabase, c: IncomeCategory) => put(db, INCOME, c);
 export const putSettings = (db: IDBDatabase, s: Settings) => put(db, SETTINGS, { key: 'currency', value: s.currency });
 
-/** Import / sample data: only while the ledger is empty. Replaces reference data; one transaction. */
+/** Import: only while the ledger is empty. Replaces reference data; one transaction. */
 export async function importAll(db: IDBDatabase, data: Imported): Promise<void> {
   const tx = db.transaction([ENTRIES, ACCOUNTS, EXPENSE, INCOME, SETTINGS], 'readwrite');
   const d = done(tx);

@@ -9,5 +9,4 @@ export * from './budgets';
 export * from './reports';
 export * from './screenLogic';
 export * from './snapshot';
-export * from './sample';
 export * from './viewLogic';

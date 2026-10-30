@@ -6,7 +6,7 @@ import { setBudget } from './budgets';
 import { AUD, JPY } from './money';
 import { Ledger, OPENING_BALANCES_ID, type EntryKind } from './ledger';
 import {
-  active, canChangeCurrency, canImport, canLoadSampleData, dayLabel, homeSections, isValidDraft,
+  active, canChangeCurrency, canImport, dayLabel, homeSections, isValidDraft,
   makeDirectory, newDraft, pickable, postDraft, subBudgetOverflow, validateDraft, type TransactionDraft, type TxType,
 } from './screenLogic';
 import { day, expectCode, now, uid, UTC, ym } from './testSupport';
@@ -28,9 +28,9 @@ describe('reference data', () => {
   });
   it('empty-ledger gates', () => {
     const l = new Ledger([], uid);
-    expect([canChangeCurrency(l), canLoadSampleData(l), canImport(l)]).toEqual([true, true, true]);
+    expect([canChangeCurrency(l), canImport(l)]).toEqual([true, true]);
     l.postOpening({ account: uid(), accountClass: 'bank', amountMinor: 1, date: day(2026, 10, 27), now, timeZone: UTC });
-    expect([canChangeCurrency(l), canLoadSampleData(l), canImport(l)]).toEqual([false, false, false]);
+    expect([canChangeCurrency(l), canImport(l)]).toEqual([false, false]);
   });
   it('subBudgetOverflow', () => {
     const m = ym(2026, 10);

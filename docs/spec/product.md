@@ -58,7 +58,7 @@ Grouped lists (bg `#232532`, radius 8, rows ≥48pt, 1pt `#292B31` separators):
 - Income categories: list + add/archive.
 - Currency: "Ledger currency" with a picker (PHP, AUD, USD, EUR, GBP, NZD, CAD, SGD, JPY, INR); **default PHP (₱)**. JPY has 0 minor digits, the rest 2. **Locked once the first entry exists** (amounts are stored in minor units of this currency).
 - Archived: a collapsed group listing archived accounts and categories, each with "Restore" (undoes a mistaken archive; reference data only).
-- Footer: "Load sample data", only when the ledger is empty (confirm first). No "Clear transactions": the ledger is never erased in-app.
+- No "Load sample data" and no "Clear transactions": the ledger only ever holds real entries and is never erased in-app.
 - Data: "Export data" (JSON snapshot, format in [backup.md](backup.md); uses the share sheet via `navigator.share` with a file, falling back to a download) / "Import data" (file picker; only when the ledger is empty).
 
 ### 5. Add Transaction sheet (from +)
@@ -97,5 +97,5 @@ tab, month offset, expanded categories, inline budget edit {kind, ids, value}, i
 ## Files (`../prototype/`, frozen reference — the spec overrides it)
 - `JEarn Logo.dc.html` — logo / app icon directions (final pick pending).
 - `Budget Tracker HIG.dc.html` — **visual reference** (HIG style). Same behaviour as below.
-- `Budget Tracker.dc.html` — original prototype; reference for behaviour and the logic class (all calculations and sample data generator).
+- `Budget Tracker.dc.html` — original prototype; reference for behaviour and the logic class (all calculations). Its sample data generator is not ported.
 - `support.js` — runtime needed to open the HTML in a browser.

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'preact/hooks';
 import {
-  ACCOUNT_TYPES, CURRENCIES, SnapshotError, accountClass, active, canChangeCurrency, canImport, canLoadSampleData, carryover,
+  ACCOUNT_TYPES, CURRENCIES, SnapshotError, accountClass, active, canChangeCurrency, canImport, carryover,
   evaluate, formatMoney, importSnapshot, monthOf, openingEntry, plainAmount, rolloverNote, type AccountType,
 } from '../../core';
 import { useApp } from '../ctx';
@@ -237,9 +237,6 @@ export function Setup() {
       <div class="group">
         <button class="addbtn" onClick={() => go(exportData())}>Export data</button>
         {canImport(ledger) && <button class="addbtn" onClick={() => file.current?.click()}>Import data</button>}
-        {canLoadSampleData(ledger) && (
-          <button class="addbtn" onClick={() => { if (confirm('Replace your accounts and categories with sample data?')) go(actions.loadSample()); }}>Load sample data</button>
-        )}
       </div>
       <input ref={file} type="file" accept="application/json,.json" hidden
         onChange={(e) => { const f = e.currentTarget.files?.[0]; e.currentTarget.value = ''; if (f) void importFile(f); }} />

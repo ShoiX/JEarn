@@ -22,9 +22,8 @@ export function subBudgetOverflow(cat: ExpenseCategory, month: YearMonth): SubBu
   return subsTotalMinor > categoryMinor ? { subsTotalMinor, categoryMinor } : null;
 }
 
-// Currency, sample data and import are only allowed while the ledger is empty.
+// Currency and import are only allowed while the ledger is empty.
 export const canChangeCurrency = (l: Ledger) => l.entries.length === 0;
-export const canLoadSampleData = canChangeCurrency;
 export const canImport = canChangeCurrency;
 
 // ---- Home list

@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import {
-  Ledger, PHP, AUD, newAccount, newExpenseCategory, newIncomeCategory, newSubCategory, generateSample,
+  Ledger, PHP, AUD, newAccount, newExpenseCategory, newIncomeCategory, newSubCategory,
 } from '../core';
 import {
   appendEntry, importAll, loadAll, openDb, putAccount, putExpenseCat, putIncomeCat, putSettings,
@@ -15,6 +15,17 @@ const ledgerWith = (count: number) => {
   const a = newAccount('A');
   for (let i = 0; i < count; i++) l.postOpening({ account: a.id, accountClass: 'bank', amountMinor: 100 + i, date: '2026-10-01', now, timeZone: 'UTC' });
   return { l, a };
+};
+
+const fixture = () => {
+  const l = new Ledger();
+  const bank = newAccount('Bank');
+  const food = newExpenseCategory('Food', { subs: [newSubCategory('Groceries')] });
+  const pay = newIncomeCategory('Salary');
+  l.postOpening({ account: bank.id, accountClass: 'bank', amountMinor: 50000, date: '2026-10-01', now, timeZone: 'UTC' });
+  l.post({ kind: 'expense', date: '2026-10-02', debit: food.id, credit: bank.id, amountMinor: 1250, now, timeZone: 'UTC' });
+  l.post({ kind: 'income', date: '2026-10-03', debit: bank.id, credit: pay.id, amountMinor: 90000, now, timeZone: 'UTC' });
+  return { ledger: l, accounts: [bank], expenseCategories: [food], incomeCategories: [pay], currency: PHP };
 };
 
 describe('db', () => {
@@ -71,7 +82,7 @@ describe('db', () => {
   it('importAll writes everything when the ledger is empty, replacing reference data', async () => {
     const db = await fresh();
     await putAccount(db, newAccount('Stale'));
-    const sample = generateSample({ now, timeZone: 'UTC' });
+    const sample = fixture();
     await importAll(db, sample);
     const s = await loadAll(db);
     expect(s.ledger.entries).toEqual(sample.ledger.entries);
@@ -84,7 +95,7 @@ describe('db', () => {
     const db = await fresh();
     const { l } = ledgerWith(1);
     await appendEntry(db, l.entries[0]!);
-    await expect(importAll(db, generateSample({ now, timeZone: 'UTC' }))).rejects.toThrow(/empty/);
+    await expect(importAll(db, fixture())).rejects.toThrow(/empty/);
     const s = await loadAll(db);
     expect(s.ledger.entries).toEqual(l.entries);
     expect(s.accounts).toEqual([]);

@@ -1,5 +1,5 @@
 import {
-  Ledger, accountClass, generateSample, makeSnapshot, newAccount, newExpenseCategory, newIncomeCategory,
+  Ledger, accountClass, makeSnapshot, newAccount, newExpenseCategory, newIncomeCategory,
   newSubCategory, openingEntry, postDraft, previousMonth, setBudget, snapshotToJson, today, canChangeCurrency, currencyByCode,
   type Account, type AccountType, type Entry, type ExpenseCategory, type Imported, type IncomeCategory, type SubCategory,
   type TransactionDraft, type YearMonth,
@@ -119,14 +119,6 @@ export function makeActions(db: IDBDatabase, getData: () => Data, commit: (d: Da
     ).then((es) => es[0]!),
     voidEntry: (id: string) => withLedger((l) => { const b = l.entries.length; l.void(id, new Date()); return l.entries.slice(b); }, (es) => es),
 
-    loadSample: () => run(async () => {
-      const s = generateSample({ now: new Date() });
-      // Distinct createdAt so the list order survives a reload.
-      const t = Date.now();
-      const stamp = <T extends { createdAt: string }>(xs: T[]) => xs.map((x, i) => ({ ...x, createdAt: new Date(t + i).toISOString() }));
-      const data: Data = { ...s, accounts: stamp(s.accounts), expenseCategories: stamp(s.expenseCategories), incomeCategories: stamp(s.incomeCategories) };
-      await importAll(db, data); commit(data);
-    }),
     importData: (data: Data) => run(async () => { await importAll(db, data); commit(data); }),
 
     exportJson(): { name: string; text: string } {
