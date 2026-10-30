@@ -1,38 +1,68 @@
 # JEarn
 
-A minimal, personal budget tracker for iPhone, built as an offline-first web app (PWA).
+A minimal, personal budget tracker for iPhone. It's a web app you add to your Home Screen (a PWA): it opens like an app, works fully offline and keeps your data on the phone.
 
-- Single user, offline, no login; Preact is the only runtime dependency
-- Immutable double-entry ledger: entries are never edited or deleted, only voided
-- Accounts, categories with subcategories, monthly budgets with rollover, transfers, a calculator for amounts, reports
+**Live app:** https://shoix.github.io/JEarn/
 
-## Status
-v1 in development, switched from native Swift to a PWA (see [decision 004](docs/decisions/004-pwa-instead-of-native.md)). The Swift version is kept under the git tag `swift-archive`.
+## Features
+- Accounts (bank, savings, cash, credit card, loan, investment) with opening balances
+- Expense categories with subcategories, plus income categories (a common starter set is created on first launch)
+- Monthly budgets per category and subcategory, with optional rollover of unspent budget
+- Expenses, income and transfers, with backdating and a built-in calculator
+- Reports: this month and the last 6 months
+- Export / import of all data as a JSON file
+- Currency: PHP (₱) by default; others available until the first entry is added
 
-## Layout
-```
-docs/spec/        Product, ledger, backup and design specs (source of truth)
-docs/decisions/   Why key choices were made
-docs/prototype/   Frozen HTML prototype (open in a browser)
-src/core/         Pure TypeScript logic: ledger, budgets, rollover, reports, calculator, snapshot
-src/db/           IndexedDB persistence
-src/ui/           Preact screens and components
-public/           Manifest, service worker, icons
-```
+**The ledger is permanent.** Entries are never edited or deleted. To fix a mistake, open the entry and tap **Void**, then add it again. Accounts and categories are archived (and can be restored), never deleted.
+
+## Install on iPhone
+1. Open https://shoix.github.io/JEarn/ in **Safari**.
+2. Tap **Share** → **Add to Home Screen** → **Add**.
+3. Open JEarn from the Home Screen icon (not the Safari tab: the tab keeps separate data).
+
+Updates install themselves: after a new version is deployed, it's used the next time you open the app.
+
+## First steps
+1. **Setup → Add account** for each account, with its current balance.
+2. Archive the starter categories you don't need, and add your own.
+3. **Budgets:** tap an amount to set a monthly budget.
+4. Tap **+** to add transactions.
+
+## Keep your data safe
+- Data lives only on your phone, inside the Home Screen app.
+- **Deleting the Home Screen icon deletes the data.** Changing the app's URL also starts a new, empty app.
+- Back up regularly: **Setup → Export data** and save the file (e.g. to Files or Drive). To restore on a fresh install: **Setup → Import data**.
+- Automatic backup to a private server is planned (see [docs/spec/backup.md](docs/spec/backup.md)).
 
 ## Development
+Requires Node.js (LTS).
+
 ```sh
 npm install
-npm test          # Vitest
-npm run dev       # local preview
-npm run build     # static site in dist/
+npm run dev       # local preview at http://localhost:5173
+npm test          # unit tests (Vitest)
+npm run e2e       # builds, then tests every flow in headless Chrome
+npm run build     # production build in dist/
 ```
 
-- **Install:** open the deployed URL in Safari on the iPhone → Share → Add to Home Screen. Works offline after that.
-- **Deploy:** static HTTPS hosting (plan: GitHub Pages from a public repo holding only the built files).
-- **Workflow:** test-first (TDD). Spec changes go in `docs/spec/` before or with the code.
+- **Branches:** work on `develop`; `main` is the deployment branch.
+- **Deploy:** every push to `main` runs the tests, builds and publishes to GitHub Pages ([deploy.yml](.github/workflows/deploy.yml)). Every push to any branch runs the tests ([test.yml](.github/workflows/test.yml)).
+- **Workflow:** test-first (TDD). Specs in `docs/spec/` are updated before or with the code.
+- Conventions for AI agents and contributors: [CLAUDE.md](CLAUDE.md).
 
-See [CLAUDE.md](CLAUDE.md) for working conventions.
+## Project layout
+```
+src/core/         Pure TypeScript logic: ledger, budgets, rollover, reports, calculator, snapshot (fully tested)
+src/db/           IndexedDB storage
+src/app/          Preact screens and components
+public/           Manifest, service worker, icons
+scripts/          Icon generator, end-to-end test
+docs/spec/        Product, ledger, backup and design specs (source of truth)
+docs/decisions/   Why key choices were made
+docs/prototype/   Frozen HTML design prototype
+```
+
+Stack: TypeScript, Preact (the only runtime dependency), Vite, Vitest. The earlier native Swift version is kept under the git tag `swift-archive` ([why it changed](docs/decisions/004-pwa-instead-of-native.md)).
 
 ## License
-Private project. All rights reserved.
+Personal project. All rights reserved.

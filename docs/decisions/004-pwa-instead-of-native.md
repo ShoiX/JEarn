@@ -8,7 +8,7 @@
 - Stack: TypeScript, Preact (the only runtime dependency), Vite, Vitest.
 - Data lives in IndexedDB on the phone; the app asks for persistent storage.
 - A hand-written service worker caches the app so it works fully offline.
-- Static hosting over HTTPS. The likely choice is GitHub Pages from a separate public repo that holds only built files; the source repo stays private.
+- Static hosting over HTTPS: GitHub Pages from the source repo, which is made public (the owner accepted that the code and history are visible; the data never is).
 - The Swift code is kept under the git tag `swift-archive`.
 
 **Consequences:**

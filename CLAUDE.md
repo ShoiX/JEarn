@@ -33,7 +33,7 @@ Doc rules: update the spec before or with the code (same commit/PR). Each fact l
 ## Build & deploy
 - `npm install`, `npm test` (Vitest), `npm run dev` (local preview), `npm run build` (output in `dist/`).
 - Node lives in `~/.local/node/bin` on the dev machine (add to `PATH`).
-- Deploy: static hosting over HTTPS (plan: GitHub Pages from a separate public repo holding only `dist/`). Install on the phone via Safari → Add to Home Screen. The URL must never change once installed.
+- Deploy: GitHub Pages from this (public) repo via `.github/workflows/deploy.yml`, on every push to `main` (tests + build first). URL: https://shoix.github.io/JEarn/. Install on the phone via Safari → Add to Home Screen. The URL must never change once installed.
 - The old native Swift version is under the git tag `swift-archive`.
 
 ## Future (design for, don't build yet)
