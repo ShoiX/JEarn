@@ -15,6 +15,11 @@ describe('starter categories', () => {
     expect(s.incomeCategories.map((c) => c.name)).toContain('Salary');
   });
 
+  it('has no "&" pairs (each split into its own name)', () => {
+    const names = [...s.expenseCategories.flatMap((c) => [c.name, ...c.subs.map((x) => x.name)]), ...s.incomeCategories.map((c) => c.name)];
+    expect(names.filter((n) => n.includes('&'))).toEqual([]);
+  });
+
   it('has no budgets, rollover off, and unique ids', () => {
     expect(s.expenseCategories.every((c) => c.budgets.length === 0 && !c.rollover && c.subs.every((x) => x.budgets.length === 0))).toBe(true);
     const ids = [...s.expenseCategories.flatMap((c) => [c.id, ...c.subs.map((x) => x.id)]), ...s.incomeCategories.map((c) => c.id)];

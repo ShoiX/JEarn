@@ -58,7 +58,7 @@ Grouped lists (bg `#232532`, radius 8, rows ≥48pt, 1pt `#292B31` separators):
 - Income categories: list + add/archive.
 - Currency: "Ledger currency" with a picker (PHP, AUD, USD, EUR, GBP, NZD, CAD, SGD, JPY, INR); **default PHP (₱)**. JPY has 0 minor digits, the rest 2. **Locked once the first entry exists** (amounts are stored in minor units of this currency).
 - Archived: a collapsed group listing archived accounts and categories, each with "Restore" (undoes a mistaken archive; reference data only).
-- **Starter categories:** on a fresh install (no categories and an empty ledger) the app creates common expense categories with subcategories (Housing, Food, Transport, Bills, Health, Personal, Shopping, Entertainment, Family & giving, Education, Insurance, Fees & taxes) and income categories (Salary, Bonus, Side income, Interest, Gifts received, Refunds, Other income), with no budgets. List: `src/core/starter.ts`. No accounts are created.
+- **Starter categories:** on a fresh install (no categories and an empty ledger) the app creates common expense categories with subcategories (Housing, Food, Transport, Bills, Health, Personal, Shopping, Entertainment, Family, Giving, Education, Insurance, Fees, Taxes) and income categories (Salary, Bonus, Side income, Interest, Gifts received, Refunds, Other income), with no budgets. List: `src/core/starter.ts`. No accounts are created.
 - No "Load sample data" and no "Clear transactions": the ledger only ever holds real entries and is never erased in-app.
 - Data: "Export data" (JSON snapshot, format in [backup.md](backup.md); uses the share sheet via `navigator.share` with a file, falling back to a download) / "Import data" (file picker; only when the ledger is empty).
 

@@ -4,17 +4,19 @@ import type { Ledger } from './ledger';
 // Common starter categories, created once on a fresh install. Reference data: archive or add to them freely.
 const EXPENSE: [string, string[]][] = [
   ['Housing', ['Rent', 'Electricity', 'Water', 'Internet', 'Repairs']],
-  ['Food', ['Groceries', 'Dining out', 'Coffee & snacks', 'Delivery']],
-  ['Transport', ['Fuel', 'Public transit', 'Ride-hailing', 'Parking & tolls', 'Car maintenance']],
-  ['Bills', ['Mobile & load', 'Subscriptions']],
+  ['Food', ['Groceries', 'Dining out', 'Coffee', 'Snacks', 'Delivery']],
+  ['Transport', ['Fuel', 'Public transit', 'Ride-hailing', 'Parking', 'Tolls', 'Car maintenance']],
+  ['Bills', ['Mobile', 'Load', 'Subscriptions']],
   ['Health', ['Doctor', 'Medicine', 'Fitness']],
-  ['Personal', ['Clothing', 'Haircut & grooming', 'Toiletries']],
+  ['Personal', ['Clothing', 'Haircut', 'Grooming', 'Toiletries']],
   ['Shopping', ['Household', 'Electronics']],
-  ['Entertainment', ['Movies & events', 'Hobbies', 'Travel']],
-  ['Family & giving', ['Family support', 'Gifts', 'Donations']],
-  ['Education', ['Tuition', 'Books & courses']],
+  ['Entertainment', ['Movies', 'Events', 'Hobbies', 'Travel']],
+  ['Family', ['Support', 'Gifts']],
+  ['Giving', ['Donations']],
+  ['Education', ['Tuition', 'Books', 'Courses']],
   ['Insurance', ['Health', 'Life', 'Vehicle']],
-  ['Fees & taxes', ['Bank fees', 'Taxes']],
+  ['Fees', ['Bank fees', 'Transfer fees']],
+  ['Taxes', ['Income tax', 'Property tax']],
 ];
 const INCOME = ['Salary', 'Bonus', 'Side income', 'Interest', 'Gifts received', 'Refunds', 'Other income'];
 
