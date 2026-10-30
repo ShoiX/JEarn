@@ -12,7 +12,7 @@ import { Reports } from './screens/Reports';
 import { Setup } from './screens/Setup';
 
 type Tab = 'home' | 'budgets' | 'reports' | 'setup';
-type Sheet = null | { kind: 'add' } | { kind: 'tx'; id: string };
+type Sheet = null | { kind: 'add' } | { kind: 'edit'; id: string } | { kind: 'tx'; id: string };
 const TABS: Record<Tab, [string, IconName]> = { home: ['Home', 'house'], budgets: ['Budgets', 'target'], reports: ['Reports', 'chart'], setup: ['Setup', 'gear'] };
 
 export function App() {
@@ -59,7 +59,7 @@ export function App() {
   if (!ctx) return <div class="boot" />;
 
   const goTab = (t: Tab) => { setTab(t); scroller.current?.scrollTo(0, 0); };
-  const saved = (e: Entry) => { setSheet(null); setMonth(monthOf(e.date)); if (tab === 'setup') setTab('home'); };
+  const saved = (e: Entry | null) => { setSheet(null); if (e) setMonth(monthOf(e.date)); if (tab === 'setup') setTab('home'); };
   const close = () => setSheet(null);
   const tabButton = (t: Tab) => (
     <button class={'tab' + (tab === t ? ' on' : '')} onClick={() => goTab(t)} aria-current={tab === t ? 'page' : undefined}>
@@ -81,7 +81,8 @@ export function App() {
         {tabButton('reports')}{tabButton('setup')}
       </nav>
       {sheet?.kind === 'add' && <AddSheet onClose={close} onSaved={saved} />}
-      {sheet?.kind === 'tx' && <DetailSheet id={sheet.id} onClose={close} />}
+      {sheet?.kind === 'edit' && <AddSheet edit={ctx.data.ledger.entries.find((x) => x.id === sheet.id)} onClose={close} onSaved={saved} />}
+      {sheet?.kind === 'tx' && <DetailSheet id={sheet.id} onClose={close} onEdit={(id) => setSheet({ kind: 'edit', id })} />}
     </AppCtx.Provider>
   );
 }

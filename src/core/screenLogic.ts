@@ -2,8 +2,8 @@ import { addDays, monthOf, today, weekdayIndex, type Day, type YearMonth } from 
 import type { Account, ExpenseCategory, IncomeCategory } from './accounts';
 import { liveAmount } from './amountInput';
 import { budgetAt } from './budgets';
-import { Ledger, OPENING_BALANCES_ID, type Entry, type EntryKind } from './ledger';
-import { formatMoney, type Currency } from './money';
+import { Ledger, LedgerError, OPENING_BALANCES_ID, type Entry, type EntryKind } from './ledger';
+import { formatMoney, plainAmount, type Currency } from './money';
 
 // ---- Reference-data helpers
 /** Non-archived items (what pickers list). */
@@ -127,13 +127,58 @@ export function isValidDraft(d: TransactionDraft, c: Currency, now: Date, timeZo
   try { validateDraft(d, c, now, timeZone); return true; } catch { return false; }
 }
 
-/** Validates, then posts with the debit/credit mapping from ledger.md. */
-export function postDraft(l: Ledger, d: TransactionDraft, c: Currency, now: Date, timeZone?: string): Entry {
-  validateDraft(d, c, now, timeZone);
+interface PostFields { kind: EntryKind; debit: string; credit: string; amountMinor: number; date: Day; note: string }
+/** The ledger fields a draft posts, with the debit/credit mapping from ledger.md. */
+function draftFields(d: TransactionDraft, c: Currency): PostFields {
   const account = d.accountId!;
   const [kind, debit, credit]: [EntryKind, string, string] =
     d.type === 'expense' ? ['expense', (d.subcategoryId ?? d.categoryId)!, account]
       : d.type === 'income' ? ['income', account, d.categoryId!]
         : ['transfer', d.toAccountId!, account];
-  return l.post({ kind, date: d.date, debit, credit, amountMinor: liveAmount(d.expression, c), note: d.note.trim(), now, timeZone });
+  return { kind, debit, credit, amountMinor: liveAmount(d.expression, c), date: d.date, note: d.note.trim() };
+}
+
+/** Validates, then posts. */
+export function postDraft(l: Ledger, d: TransactionDraft, c: Currency, now: Date, timeZone?: string): Entry {
+  validateDraft(d, c, now, timeZone);
+  return l.post({ ...draftFields(d, c), now, timeZone });
+}
+
+// ---- Edit a transaction (void + repost)
+/** Only live expense/income/transfer entries can be edited. */
+export function canEdit(l: Ledger, id: string): boolean {
+  return l.visibleEntries.some((e) => e.id === id);
+}
+
+/** Rebuilds the draft an entry was posted from; null for opening and reversal entries. */
+export function draftFromEntry(e: Entry, expense: readonly ExpenseCategory[], c: Currency): TransactionDraft | null {
+  const common = { expression: plainAmount(c, e.amountMinor), date: e.date, note: e.note };
+  switch (e.kind) {
+    case 'income': return { ...common, type: 'income', accountId: e.debitId, categoryId: e.creditId };
+    case 'transfer': return { ...common, type: 'transfer', accountId: e.creditId, toAccountId: e.debitId };
+    case 'expense': {
+      const cat = expense.find((x) => x.id === e.debitId || x.subs.some((s) => s.id === e.debitId));
+      const sub = cat?.id === e.debitId ? undefined : e.debitId;
+      return { ...common, type: 'expense', accountId: e.creditId, categoryId: cat?.id ?? e.debitId, ...(sub && { subcategoryId: sub }) };
+    }
+    default: return null;
+  }
+}
+
+/** True when saving `d` would post exactly what `e` already is (so an edit is a no-op). */
+export function draftMatchesEntry(e: Entry, d: TransactionDraft, c: Currency): boolean {
+  const f = draftFields(d, c);
+  return f.kind === e.kind && f.debit === e.debitId && f.credit === e.creditId
+    && f.amountMinor === e.amountMinor && f.date === e.date && f.note === e.note;
+}
+
+/** Validates `d` first (nothing is written if it is invalid), then voids `entryId` and posts the corrected entry. */
+export function correctDraft(l: Ledger, entryId: string, d: TransactionDraft, c: Currency, now: Date, timeZone?: string): { reversal: Entry; posted: Entry } {
+  const e = l.entries.find((x) => x.id === entryId);
+  if (!e) throw new LedgerError('entryNotFound');
+  if (e.kind === 'opening' || e.kind === 'reversal') throw new LedgerError('cannotEdit');
+  if (l.isVoided(entryId)) throw new LedgerError('alreadyVoided');
+  validateDraft(d, c, now, timeZone);
+  const reversal = l.void(entryId, now);
+  return { reversal, posted: postDraft(l, d, c, now, timeZone) };
 }

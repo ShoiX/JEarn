@@ -26,7 +26,7 @@ export interface Entry {
 
 export type LedgerErrorCode =
   | 'invalidAmount' | 'sameAccount' | 'reversalNotPostable' | 'entryNotFound' | 'alreadyVoided'
-  | 'cannotVoidReversal' | 'dateNotCalendarDay' | 'dateInFuture' | 'invalidOpeningClass';
+  | 'cannotVoidReversal' | 'cannotEdit' | 'dateNotCalendarDay' | 'dateInFuture' | 'invalidOpeningClass';
 
 export class LedgerError extends Error {
   constructor(readonly code: LedgerErrorCode) { super(code); this.name = 'LedgerError'; }

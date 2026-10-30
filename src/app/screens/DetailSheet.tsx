@@ -1,8 +1,8 @@
-import { detailRows } from '../../core';
+import { canEdit, detailRows } from '../../core';
 import { useApp } from '../ctx';
 import { Sheet } from '../ui';
 
-export function DetailSheet({ id, onClose }: { id: string; onClose: () => void }) {
+export function DetailSheet({ id, onClose, onEdit }: { id: string; onClose: () => void; onEdit: (id: string) => void }) {
   const { data, c, today, dir, actions } = useApp();
   const e = data.ledger.entries.find((x) => x.id === id);
   if (!e) return null;
@@ -21,6 +21,7 @@ export function DetailSheet({ id, onClose }: { id: string; onClose: () => void }
       <div class="detailrows">
         {d.rows.map(([k, v]) => <div class="drow" key={k}><span class="muted14">{k}</span><span class="dval">{v}</span></div>)}
       </div>
+      {canEdit(data.ledger, id) && <div class="pad-h mt16"><button class="editbtn" onClick={() => onEdit(id)}>Edit</button></div>}
       <div class="pad-h mt16"><button class="destructive" onClick={voidIt}>Void transaction</button></div>
     </Sheet>
   );

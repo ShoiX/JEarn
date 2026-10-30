@@ -1,11 +1,11 @@
 import {
   Ledger, accountClass, makeSnapshot, newAccount, newExpenseCategory, newIncomeCategory,
-  newSubCategory, openingEntry, postDraft, previousMonth, setBudget, snapshotToJson, today, canChangeCurrency, currencyByCode,
+  newSubCategory, openingEntry, postDraft, correctDraft, draftMatchesEntry, previousMonth, setBudget, snapshotToJson, today, canChangeCurrency, currencyByCode,
   type Account, type AccountType, type Entry, type ExpenseCategory, type Imported, type IncomeCategory, type SubCategory,
   type TransactionDraft, type YearMonth,
 } from '../core';
 import {
-  appendEntry, importAll, loadAll, putAccount, putExpenseCat, putIncomeCat, putSettings,
+  appendEntries, appendEntry, importAll, loadAll, putAccount, putExpenseCat, putIncomeCat, putSettings,
 } from '../db/db';
 
 export type Data = Imported;
@@ -47,7 +47,7 @@ export function makeActions(db: IDBDatabase, getData: () => Data, commit: (d: Da
     const d = getData(); const l = new Ledger(d.ledger.entries);
     const result = fn(l);
     try {
-      for (const e of collect(result)) await appendEntry(db, e);
+      await appendEntries(db, collect(result));
     } catch (err) { await resync(); throw err; }
     commit({ ...d, ledger: l });
     return result;
@@ -117,6 +117,15 @@ export function makeActions(db: IDBDatabase, getData: () => Data, commit: (d: Da
       (l) => { const b = l.entries.length; postDraft(l, draft, getData().currency, new Date()); return l.entries.slice(b); },
       (es) => es,
     ).then((es) => es[0]!),
+    /** Edit = void + repost in one database transaction. Resolves to the corrected entry, or null if nothing changed. */
+    editEntry: (id: string, draft: TransactionDraft) => {
+      const d0 = getData(); const old = d0.ledger.entries.find((x) => x.id === id);
+      if (old && draftMatchesEntry(old, draft, d0.currency)) return run(async () => null);
+      return withLedger(
+        (l) => { const b = l.entries.length; correctDraft(l, id, draft, getData().currency, new Date()); return l.entries.slice(b); },
+        (es) => es,
+      ).then((es) => es[1]!);
+    },
     voidEntry: (id: string) => withLedger((l) => { const b = l.entries.length; l.void(id, new Date()); return l.entries.slice(b); }, (es) => es),
 
     importData: (data: Data) => run(async () => { await importAll(db, data); commit(data); }),

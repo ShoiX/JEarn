@@ -15,7 +15,7 @@ const req = <T>(r: IDBRequest<T>): Promise<T> =>
 const done = (tx: IDBTransaction): Promise<void> =>
   new Promise((res, rej) => {
     tx.oncomplete = () => res();
-    tx.onerror = () => rej(tx.error);
+    tx.onerror = () => rej(tx.error ?? new Error('transaction failed'));
     tx.onabort = () => rej(tx.error ?? new Error('transaction aborted'));
   });
 
@@ -52,6 +52,14 @@ export async function appendEntry(db: IDBDatabase, e: Entry): Promise<void> {
   const tx = db.transaction(ENTRIES, 'readwrite');
   const d = done(tx);
   tx.objectStore(ENTRIES).add({ ...e });
+  await d;
+}
+
+/** Adds several entries in one transaction: all are written or none (add-only). */
+export async function appendEntries(db: IDBDatabase, es: readonly Entry[]): Promise<void> {
+  const tx = db.transaction(ENTRIES, 'readwrite');
+  const d = done(tx);
+  for (const e of es) tx.objectStore(ENTRIES).add({ ...e });
   await d;
 }
 

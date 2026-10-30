@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import {
-  addDays, active, calculatorOff, currencySymbol, dayLabel, formatMoney, hasOperators, isValidDraft, liveAmount, newDraft,
+  addDays, active, draftFromEntry, calculatorOff, currencySymbol, dayLabel, formatMoney, hasOperators, isValidDraft, liveAmount, newDraft,
   pickable, pressKey, prettyExpression, type Entry, type Key, type TransactionDraft, type TxType,
 } from '../../core';
 import { useApp } from '../ctx';
@@ -12,14 +12,15 @@ const CALC: Key[] = ['clear', '(', ')', '/', '7', '8', '9', '*', '4', '5', '6', 
 const LABEL: Partial<Record<Key, string>> = { '*': '×', '/': '÷', '-': '−', clear: 'C', equals: '=' };
 type DayMode = 'today' | 'yesterday' | 'custom';
 
-export function AddSheet({ onClose, onSaved }: { onClose: () => void; onSaved: (e: Entry) => void }) {
+/** New transaction, or (with `edit`) the same sheet pre-filled from a live entry; saving voids and reposts it. */
+export function AddSheet({ edit, onClose, onSaved }: { edit?: Entry; onClose: () => void; onSaved: (e: Entry | null) => void }) {
   const { data, c, today, actions, dir, colors } = useApp();
   const accts = active(data.accounts);
-  const [d, setD] = useState<TransactionDraft>(() => newDraft('expense', today, accts[0]?.id, (accts[1] ?? accts[0])?.id));
+  const [d, setD] = useState<TransactionDraft>(() => (edit && draftFromEntry(edit, data.expenseCategories, c)) || newDraft('expense', today, accts[0]?.id, (accts[1] ?? accts[0])?.id));
   const [step, setStep] = useState<'amount' | 'cat'>('amount');
   const [picker, setPicker] = useState<null | 'acct' | 'date'>(null);
   const [calc, setCalc] = useState(false);
-  const [mode, setMode] = useState<DayMode>('today');
+  const [mode, setMode] = useState<DayMode>(() => (edit && edit.date !== today ? (edit.date === addDays(today, -1) ? 'yesterday' : 'custom') : 'today'));
   const [busy, setBusy] = useState(false);
 
   const transfer = d.type === 'transfer';
@@ -34,7 +35,7 @@ export function AddSheet({ onClose, onSaved }: { onClose: () => void; onSaved: (
     const draft = { ...d, ...over };
     if (busy || !isValidDraft(draft, c, new Date())) return;
     setBusy(true);
-    try { onSaved(await actions.post(draft)); } catch (e) { setBusy(false); alert(e instanceof Error ? e.message : String(e)); }
+    try { onSaved(await (edit ? actions.editEntry(edit.id, draft) : actions.post(draft))); } catch (e) { setBusy(false); alert(e instanceof Error ? e.message : String(e)); }
   };
 
   const amountText = ops ? formatMoney(c, amount) : currencySymbol(c) + (d.expression || '0');
@@ -56,7 +57,7 @@ export function AddSheet({ onClose, onSaved }: { onClose: () => void; onSaved: (
             <div key={g.id} class="catgroup">
               <div class="cghead"><i class="dot" style={{ background: g.color }} />{g.name}</div>
               <div class="chips">
-                {g.items.map((it) => <button key={it.key} class="catchip" disabled={busy} onClick={() => save(it.over)}>{it.name}</button>)}
+                {g.items.map((it) => <button key={it.key} class={'catchip' + ((('subcategoryId' in it.over ? it.over.subcategoryId : undefined) ?? it.over.categoryId) === (d.subcategoryId ?? d.categoryId) ? ' on' : '')} disabled={busy} onClick={() => save(it.over)}>{it.name}</button>)}
                 {g.items.length === 0 && <span class="muted13">Nothing here yet. Add one in Setup.</span>}
               </div>
             </div>
@@ -71,11 +72,11 @@ export function AddSheet({ onClose, onSaved }: { onClose: () => void; onSaved: (
     <Sheet onClose={onClose} tall>
       <div class="addhead">
         <button class="textbtn" onClick={onClose}>Cancel</button>
-        <span class="sheettitle">New Transaction</span>
+        <span class="sheettitle">{edit ? 'Edit Transaction' : 'New Transaction'}</span>
         <span />
       </div>
       <div class="pad-h mt8">
-        <Segmented<TxType> label="Type" value={d.type} onChange={(t) => patch({ type: t, categoryId: undefined, subcategoryId: undefined })}
+        <Segmented<TxType> label="Type" value={d.type} disabled={!!edit} onChange={(t) => patch({ type: t, categoryId: undefined, subcategoryId: undefined })}
           options={[['expense', 'Expense'], ['income', 'Income'], ['transfer', 'Transfer']]} />
       </div>
       <div class="amountbox">

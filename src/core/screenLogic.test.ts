@@ -6,7 +6,7 @@ import { setBudget } from './budgets';
 import { AUD, JPY } from './money';
 import { Ledger, OPENING_BALANCES_ID, type EntryKind } from './ledger';
 import {
-  active, canChangeCurrency, canImport, dayLabel, homeSections, isValidDraft,
+  active, canChangeCurrency, canEdit, canImport, correctDraft, dayLabel, draftFromEntry, draftMatchesEntry, homeSections, isValidDraft,
   makeDirectory, newDraft, pickable, postDraft, subBudgetOverflow, validateDraft, type TransactionDraft, type TxType,
 } from './screenLogic';
 import { day, expectCode, now, uid, UTC, ym } from './testSupport';
@@ -184,5 +184,101 @@ describe('transaction draft', () => {
   it('JPY amount', () => {
     const l = new Ledger([], uid);
     expect(postDraft(l, draft('expense', '1500'), JPY, now, UTC).amountMinor).toBe(1500);
+  });
+});
+
+// ---- Edit a transaction
+describe('edit a transaction', () => {
+  const setup = () => {
+    const bank = newAccount('Bank'); const cash = newAccount('Cash');
+    const latte = newSubCategory('Latte');
+    const food = newExpenseCategory('Food', { subs: [latte] });
+    const rent = newExpenseCategory('Rent');
+    const pay = newIncomeCategory('Salary');
+    const l = new Ledger([], uid);
+    const post = (d: TransactionDraft) => postDraft(l, d, AUD, now, UTC);
+    const base = (type: TxType, over: Partial<TransactionDraft> = {}): TransactionDraft =>
+      ({ ...newDraft(type, day(2026, 10, 20), bank.id, cash.id), expression: '12.5', note: ' hi ', ...over });
+    return { bank, cash, latte, food, rent, pay, l, post, base, cats: [food, rent] };
+  };
+  const later = new Date('2026-10-28T01:00:00Z');
+
+  it('draftFromEntry round-trips expense (sub and category), income and transfer', () => {
+    const s = setup();
+    const drafts = [
+      s.base('expense', { categoryId: s.food.id, subcategoryId: s.latte.id }),
+      s.base('expense', { categoryId: s.rent.id }),
+      s.base('income', { categoryId: s.pay.id }),
+      s.base('transfer'),
+    ];
+    for (const d of drafts) {
+      const e = s.post(d);
+      const back = draftFromEntry(e, s.cats, AUD)!;
+      expect(back.type).toBe(d.type);
+      expect(back.expression).toBe('12.5');
+      expect(back.accountId).toBe(s.bank.id);
+      expect(back.date).toBe(d.date);
+      expect(back.note).toBe('hi');
+      expect(back.categoryId).toBe(d.categoryId);
+      expect(back.subcategoryId).toBe(d.subcategoryId);
+      expect(back.toAccountId).toBe(d.type === 'transfer' ? s.cash.id : undefined);
+      expect(draftMatchesEntry(e, back, AUD)).toBe(true);
+    }
+  });
+  it('draftFromEntry is null for opening and reversal', () => {
+    const s = setup();
+    const o = s.l.postOpening({ account: s.bank.id, accountClass: 'bank', amountMinor: 5, date: day(2026, 10, 1), now, timeZone: UTC });
+    const e = s.post(s.base('transfer')); const r = s.l.void(e.id, now);
+    expect(draftFromEntry(o, s.cats, AUD)).toBeNull();
+    expect(draftFromEntry(r, s.cats, AUD)).toBeNull();
+  });
+  it('draftMatchesEntry detects each change', () => {
+    const s = setup();
+    const e = s.post(s.base('expense', { categoryId: s.food.id, subcategoryId: s.latte.id }));
+    const d = draftFromEntry(e, s.cats, AUD)!;
+    expect(draftMatchesEntry(e, { ...d, expression: '12.50' }, AUD)).toBe(true);
+    expect(draftMatchesEntry(e, { ...d, expression: '10+2.5' }, AUD)).toBe(true);
+    for (const p of [{ expression: '13' }, { accountId: s.cash.id }, { date: day(2026, 10, 21) }, { note: 'x' }, { subcategoryId: undefined }, { categoryId: s.rent.id, subcategoryId: undefined }]) {
+      expect(draftMatchesEntry(e, { ...d, ...p }, AUD)).toBe(false);
+    }
+  });
+  it('correctDraft voids then posts with consecutive seqs', () => {
+    const s = setup();
+    const e = s.post(s.base('expense', { categoryId: s.food.id, subcategoryId: s.latte.id }));
+    const before = s.l.entries.length;
+    const { reversal, posted } = correctDraft(s.l, e.id, { ...draftFromEntry(e, s.cats, AUD)!, expression: '20', categoryId: s.rent.id, subcategoryId: undefined, date: day(2026, 10, 21) }, AUD, later, UTC);
+    expect(s.l.entries.length).toBe(before + 2);
+    expect(reversal).toMatchObject({ kind: 'reversal', reverses: e.id, date: e.date, amountMinor: e.amountMinor, debitId: e.creditId, creditId: e.debitId, seq: e.seq + 1 });
+    expect(posted).toMatchObject({ kind: 'expense', seq: e.seq + 2, amountMinor: 2000, debitId: s.rent.id, date: day(2026, 10, 21) });
+    expect(s.l.visibleEntries.map((x) => x.id)).toEqual([posted.id]);
+    expect(s.l.assetBalance(s.bank.id)).toBe(-2000);
+  });
+  it('correctDraft with an invalid draft writes nothing', () => {
+    const s = setup();
+    const e = s.post(s.base('transfer'));
+    const d = draftFromEntry(e, s.cats, AUD)!;
+    const n = s.l.entries.length;
+    expectCode(() => correctDraft(s.l, e.id, { ...d, date: day(2026, 12, 1) }, AUD, later, UTC), 'dateInFuture');
+    expectCode(() => correctDraft(s.l, e.id, { ...d, toAccountId: d.accountId }, AUD, later, UTC), 'sameAccount');
+    expectCode(() => correctDraft(s.l, e.id, { ...d, expression: '0' }, AUD, later, UTC), 'invalidAmount');
+    expect(s.l.entries.length).toBe(n);
+  });
+  it('correctDraft refuses voided, reversal, opening and unknown entries', () => {
+    const s = setup();
+    const o = s.l.postOpening({ account: s.bank.id, accountClass: 'bank', amountMinor: 5, date: day(2026, 10, 1), now, timeZone: UTC });
+    const e = s.post(s.base('transfer')); const r = s.l.void(e.id, now);
+    const d = s.base('transfer');
+    const n = s.l.entries.length;
+    expectCode(() => correctDraft(s.l, e.id, d, AUD, later, UTC), 'alreadyVoided');
+    expectCode(() => correctDraft(s.l, r.id, d, AUD, later, UTC), 'cannotEdit');
+    expectCode(() => correctDraft(s.l, o.id, d, AUD, later, UTC), 'cannotEdit');
+    expectCode(() => correctDraft(s.l, 'nope', d, AUD, later, UTC), 'entryNotFound');
+    expect(s.l.entries.length).toBe(n);
+  });
+  it('canEdit', () => {
+    const s = setup();
+    const o = s.l.postOpening({ account: s.bank.id, accountClass: 'bank', amountMinor: 5, date: day(2026, 10, 1), now, timeZone: UTC });
+    const e = s.post(s.base('transfer')); const f = s.post(s.base('transfer')); const r = s.l.void(e.id, now);
+    expect([o, e, f, r].map((x) => canEdit(s.l, x.id))).toEqual([false, false, true, false]);
   });
 });

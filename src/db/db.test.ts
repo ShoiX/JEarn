@@ -4,7 +4,7 @@ import {
   Ledger, PHP, AUD, newAccount, newExpenseCategory, newIncomeCategory, newSubCategory,
 } from '../core';
 import {
-  appendEntry, importAll, loadAll, openDb, putAccount, putExpenseCat, putIncomeCat, putSettings,
+  appendEntries, appendEntry, importAll, loadAll, openDb, putAccount, putExpenseCat, putIncomeCat, putSettings,
 } from './db';
 
 const now = new Date('2026-10-27T12:00:00Z');
@@ -99,5 +99,22 @@ describe('db', () => {
     const s = await loadAll(db);
     expect(s.ledger.entries).toEqual(l.entries);
     expect(s.accounts).toEqual([]);
+  });
+});
+
+describe('appendEntries', () => {
+  it('adds several entries in one transaction', async () => {
+    const db = await fresh();
+    const { l } = ledgerWith(3);
+    await appendEntries(db, l.entries);
+    expect((await loadAll(db)).ledger.entries).toEqual(l.entries);
+  });
+  it('writes none when one fails', async () => {
+    const db = await fresh();
+    const { l } = ledgerWith(3);
+    await appendEntry(db, l.entries[0]!);
+    const dup = { ...l.entries[2]!, seq: 1 }; // seq 1 already used
+    await expect(appendEntries(db, [l.entries[1]!, dup])).rejects.toThrow();
+    expect((await loadAll(db)).ledger.entries).toEqual([l.entries[0]]);
   });
 });

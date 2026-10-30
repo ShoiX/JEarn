@@ -2,13 +2,13 @@ import type { ComponentChildren } from 'preact';
 import { useRef } from 'preact/hooks';
 import { Icon } from './icons';
 
-export function Segmented<T extends string>({ value, options, onChange, label }: {
-  value: T; options: [T, string][]; onChange: (v: T) => void; label: string;
+export function Segmented<T extends string>({ value, options, onChange, label, disabled }: {
+  value: T; options: [T, string][]; onChange: (v: T) => void; label: string; disabled?: boolean;
 }) {
   return (
     <div class="seg" role="tablist" aria-label={label}>
       {options.map(([v, text]) => (
-        <button key={v} role="tab" aria-selected={v === value} class={v === value ? 'on' : ''} onClick={() => onChange(v)}>{text}</button>
+        <button key={v} role="tab" aria-selected={v === value} class={v === value ? 'on' : ''} disabled={disabled} onClick={() => onChange(v)}>{text}</button>
       ))}
     </div>
   );

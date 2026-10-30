@@ -174,6 +174,7 @@ const php = (m, sign = '') => {
   const a = Math.abs(m);
   return (sign === '-' ? '−' : sign === '+' ? '+' : m < 0 ? '−' : '') + '₱' + Math.floor(a / 100).toLocaleString('en-US') + '.' + String(a % 100).padStart(2, '0');
 };
+const parseMoney = (t) => Math.round(parseFloat(t.replace(/[^0-9.\-−]/g, '').replace('−', '-')) * 100);
 const pad = (n) => String(n).padStart(2, '0');
 const dayStr = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const NOW = new Date();
@@ -669,6 +670,103 @@ flow('Reports', async () => {
   noAlerts('reports');
 });
 
+flow('Edit a transaction', async () => {
+  await tab('Home');
+  const openEdit = async (rowText) => {
+    await click('.txrow', rowText);
+    await waitFor(`!!document.querySelector('.sheet')`, 'detail sheet');
+    await click('button', 'Edit');
+    await waitFor(`document.querySelector('.sheettitle')?.textContent === 'Edit Transaction'`, 'edit sheet');
+    await sleep(300);
+  };
+  const saved = async () => { await waitFor(`!document.querySelector('.sheet')`, 'edit sheet to close'); await settle(); };
+
+  // expense: add one to edit
+  await addTx({ keys: '40', account: 'BDO', category: 'Groceries', note: 'edit me' });
+  const base = await dump();
+  const baseCards = await cards();
+  await click('.txrow', '~edit me');
+  await waitFor(`!!document.querySelector('.sheet')`, 'detail sheet');
+  check('detail sheet has Edit button', await exists('button', 'Edit'));
+  check('detail sheet still has Void button', await exists('.destructive', 'Void transaction'));
+  await click('.textbtn', 'Done');
+  await waitFor(`!document.querySelector('.sheet')`, 'detail closed');
+
+  await openEdit('~edit me');
+  eq('edit: amount prefilled', await text('.amount'), '₱40');
+  check('edit: type control locked', await ev(`[...document.querySelectorAll('.seg button')].every((b) => b.disabled)`));
+  eq('edit: type shows Expense', await text('.seg button.on'), 'Expense');
+  eq('edit: account prefilled', await text('.pill:nth-of-type(1)'), 'BDO');
+  has('edit: date prefilled', await text('.pill:nth-of-type(2)'), 'Today');
+  await shot('15-edit-sheet');
+
+  // unchanged expense -> no-op
+  await click('.primary', 'Choose category');
+  eq('edit: note prefilled', await ev(`document.querySelector('.sheet input.field').value`), 'edit me');
+  eq('edit: current category highlighted', await texts('.catchip.on'), ['Groceries']);
+  await click('.catchip.on');
+  await saved();
+  eq('unchanged edit: no new entries', canon((await dump()).entries), canon(base.entries));
+  eq('unchanged edit: balances same', await cards(), baseCards);
+
+  // changed: amount, subcategory, date
+  await openEdit('~edit me');
+  await click('.key[aria-label=Delete]'); await click('.key[aria-label=Delete]');
+  await pressKeys('55.5');
+  await click('.pill', undefined, { nth: 1 }); await click('.inpanel .chip', 'Yesterday');
+  await click('.primary', 'Choose category');
+  await click('.catchip', 'Mobile');
+  await saved();
+  eq('edit: app jumps to corrected entry month', await text('.large-title h1'), monthTitle(YESTERDAY.slice(0, 7)));
+  const rows = (await homeRows()).filter((r) => r.meta.includes('edit me'));
+  eq('edit: Home shows exactly one entry with new values', rows.map((r) => [r.day, r.title, r.amt]), [[dayLabel(YESTERDAY), 'Mobile', php(5550, '-')]]);
+  has('edit: row meta keeps account and note', rows[0].meta, 'BDO · edit me');
+  const after = await dump();
+  eq('edit: exactly two new entries', after.entries.length, base.entries.length + 2);
+  eq('edit: earlier entries byte-identical', canon(after.entries.slice(0, base.entries.length)), canon(base.entries));
+  const orig = base.entries.at(-1);
+  const [rev, neu] = after.entries.slice(-2);
+  check('edit: reversal mirrors original at next seq', rev.kind === 'reversal' && rev.reverses === orig.id && rev.debitId === orig.creditId
+    && rev.creditId === orig.debitId && rev.amountMinor === orig.amountMinor && rev.date === orig.date && rev.seq === orig.seq + 1, canon(rev));
+  const mobile = after.expenseCats.find((c) => c.name === 'Bills').subs.find((s) => s.name === 'Mobile');
+  const bdoId = after.accounts.find((a) => a.name === 'BDO').id;
+  check('edit: new entry has corrected fields at next seq', neu.kind === 'expense' && neu.seq === rev.seq + 1 && neu.amountMinor === 5550
+    && neu.debitId === mobile.id && neu.creditId === bdoId && neu.date === YESTERDAY && neu.note === 'edit me' && !neu.reverses, canon(neu));
+  eq('edit: balance reflects only the new amount', (await cards()).BDO, php(parseMoney(baseCards.BDO) + 4000 - 5550));
+  await tab('Budgets');
+  has('edit: budgets reflect only the new amount', await body(), php(5550));
+  await tab('Home');
+  noAlerts('edit expense');
+
+  // transfer: change To
+  await tab('Home');
+  await click('.monthnav [aria-label="Next month"]').catch(() => {});
+  await addTx({ type: 'transfer', keys: '10', from: 'BDO', to: 'Wallet' });
+  const tBase = await dump();
+  await openEdit('~Transfer');
+  eq('edit transfer: type Transfer locked', [await text('.seg button.on'), await ev(`document.querySelector('.seg button').disabled`)], ['Transfer', true]);
+  has('edit transfer: From → To prefilled', await text('.pill:nth-of-type(1)'), 'BDO → Wallet');
+  await click('.pill', undefined, { nth: 0 });
+  await click('.inpanel .chips .chip', 'Visa', { nth: 1 });
+  await click('.primary', 'Save transfer');
+  await saved();
+  const tAfter = await dump();
+  eq('edit transfer: two new entries', tAfter.entries.length, tBase.entries.length + 2);
+  eq('edit transfer: earlier entries byte-identical', canon(tAfter.entries.slice(0, tBase.entries.length)), canon(tBase.entries));
+  const visaId = tAfter.accounts.find((a) => a.name === 'Visa').id;
+  const tNew = tAfter.entries.at(-1);
+  check('edit transfer: new entry credits BDO, debits Visa', tNew.kind === 'transfer' && tNew.creditId === bdoId && tNew.debitId === visaId && tNew.amountMinor === 1000, canon(tNew));
+  check('edit transfer: reversal precedes it', tAfter.entries.at(-2).kind === 'reversal' && tAfter.entries.at(-2).reverses === tBase.entries.at(-1).id);
+  eq('edit transfer: Home shows one transfer to Visa', (await homeRows()).filter((r) => r.title === 'Transfer' && r.amt === php(1000)).map((r) => r.meta), ['BDO → Visa']);
+
+  // unchanged transfer -> no-op
+  await openEdit('~BDO → Visa');
+  await click('.primary', 'Save transfer');
+  await saved();
+  eq('unchanged transfer edit: no new entries', (await dump()).entries.length, tAfter.entries.length);
+  noAlerts('edit transfer');
+});
+
 flow('Export and tamper tests', async () => {
   await tab('Setup');
   check('Import not offered once ledger has entries', !(await exists('.addbtn', 'Import data')));
@@ -770,7 +868,7 @@ flow('Clear site data, rejected imports, round trip', async () => {
   check('archived group restored (account, income cat, sub)', ['Old', 'Freelance', 'Pets › Vet'].every((n) => arch.includes(n)));
   check('currency locked after import', await ev(`document.querySelector('select[aria-label=Currency]').disabled`));
   await tab('Home');
-  eq('imported: balances', await cards(), { BDO: php(1000000 - 3000 - 100000 + 500000 - 20000), Visa: php(250000 + 2500 - 100000), Wallet: php(50000) });
+  eq('imported: balances', await cards(), { BDO: php(1000000 - 3000 - 100000 + 500000 - 20000 - 5550 - 1000), Visa: php(250000 + 2500 - 100000 - 1000), Wallet: php(50000) });
   check('imported: voided entry hidden on Home', !(await exists('.txrow', '~Groceries')));
   check('imported: Home lists entries', (await homeRows()).length >= 4);
   await shot('13-after-import');
