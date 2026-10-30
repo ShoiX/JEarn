@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { makeDirectory, monthOf, today as todayOf, type Entry, type YearMonth } from '../core';
-import { loadAll, openDb } from '../db/db';
+import { makeDirectory, monthOf, needsStarter, starterCategories, today as todayOf, type Entry, type YearMonth } from '../core';
+import { loadAll, openDb, putExpenseCat, putIncomeCat } from '../db/db';
 import { makeActions, type Actions, type Data } from './actions';
 import { AppCtx, colorMap, type Ctx } from './ctx';
 import { Icon, type IconName } from './icons';
@@ -28,7 +28,14 @@ export function App() {
 
   useEffect(() => {
     openDb().then(async (db) => {
-      const d = await loadAll(db);
+      let d = await loadAll(db);
+      if (needsStarter(d)) {
+        // Fresh install: add the starter categories once (reference data; archive or edit freely).
+        const s = starterCategories(new Date());
+        for (const c of s.expenseCategories) await putExpenseCat(db, c);
+        for (const c of s.incomeCategories) await putIncomeCat(db, c);
+        d = { ...d, ...s };
+      }
       latest.current = d;
       setActions(makeActions(db, () => latest.current!, (n) => { latest.current = n; setData(n); }));
       setData(d);

@@ -10,3 +10,4 @@ export * from './reports';
 export * from './screenLogic';
 export * from './snapshot';
 export * from './viewLogic';
+export * from './starter';
