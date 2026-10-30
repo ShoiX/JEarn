@@ -6,7 +6,7 @@ const EXPENSE: [string, string[]][] = [
   ['Housing', ['Rent', 'Electricity', 'Water', 'Internet', 'Repairs']],
   ['Food', ['Groceries', 'Dining out', 'Coffee', 'Snacks', 'Delivery']],
   ['Transport', ['Fuel', 'Public transit', 'Ride-hailing', 'Parking', 'Tolls', 'Car maintenance']],
-  ['Bills', ['Mobile', 'Load', 'Subscriptions']],
+  ['Bills', ['Mobile', 'Subscriptions']],
   ['Health', ['Doctor', 'Medicine', 'Fitness']],
   ['Personal', ['Clothing', 'Haircut', 'Grooming', 'Toiletries']],
   ['Shopping', ['Household', 'Electronics']],
