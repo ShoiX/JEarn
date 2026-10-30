@@ -80,7 +80,8 @@ Sheet from top 28pt, bg `#232532`, top radius 14, slides up 260ms `cubic-bezier(
 - After save: sheet closes, app jumps to the transaction's month.
 
 ### 6. Transaction Detail sheet
-Sheet from top 230pt. Kind label (Expense/Income/Transfer), amount 38pt, detail rows (Category, Subcategory, Account / From, To, Date, Note), "Void transaction" button (destructive, confirm first). Voiding posts a reversal entry; nothing is edited or deleted. To correct a mistake: void, then add it again.
+Sheet from top 230pt. Kind label (Expense/Income/Transfer), amount 38pt, detail rows (Category, Subcategory, Account / From, To, Date, Note), an "Edit" button and a "Void transaction" button (destructive, confirm first). Voiding posts a reversal entry; nothing is edited or deleted.
+- **Edit** opens the Add Transaction sheet pre-filled from the entry (kind, amount, account(s), date, category/subcategory, note); the kind can't be changed. Saving does, in one all-or-nothing write: void the original (reversal) + post the corrected entry. The list then shows only the corrected entry; the original and its reversal stay in the ledger and exports. Saving with nothing changed does nothing.
 
 ## Behaviour & Rules
 - Amount entry: max 2 decimals per number, max 7 digits per number, expression ≤ 32 chars. Calculator supports + − × ÷ and parentheses with standard precedence; implicit × before "(" after a number/")"; unclosed "(" auto-closes; trailing operators are ignored for the live result. Result rounded to cents. Reference parser: `evalExpr()` in the HTML file.

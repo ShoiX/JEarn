@@ -20,6 +20,7 @@ The prototype edits and deletes records freely; **these rules override it.**
 - **Opening entries** are posted through a helper that picks the direction from the account class (see table), so callers never choose debit/credit by hand.
 - **Money:** integer minor units (cents; a JS safe integer) in the single ledger currency (ISO 4217). Never use floating point for money: calculator input is evaluated with exact fractions, then rounded to the nearest minor unit (half away from zero). Amount entry allows as many decimals as the currency has minor digits (0 for JPY).
 - Correcting an opening balance: void the opening entry and post a new one (Setup → account → "Correct opening balance").
+- **Editing** a transaction is the same pattern: void + post the corrected entry, written atomically (one IndexedDB transaction). No link field between them; the entries keep their own `seq` order.
 
 ## Data Model
 ```
