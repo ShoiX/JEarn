@@ -10,7 +10,7 @@ export const SCHEMA_VERSION = 1;
 
 export type SnapshotErrorCode =
   | 'malformed' | 'unsupportedSchemaVersion' | 'duplicateId' | 'badSequence' | 'invalidAmount'
-  | 'sameDebitCredit' | 'unknownAccount' | 'badReversal' | 'dateAfterExport';
+  | 'sameDebitCredit' | 'unknownAccount' | 'badReversal';
 
 export class SnapshotError extends Error {
   constructor(readonly code: SnapshotErrorCode, readonly version?: number) { super(code); this.name = 'SnapshotError'; }
@@ -120,8 +120,6 @@ function validated(s: Snapshot): Imported {
   const currency = currencyByCode(s.currency) ?? bad();
   const known = new Set([OPENING_BALANCES_ID, ...s.accounts.map((a) => a.id), ...s.incomeCategories.map((c) => c.id)]);
   for (const c of s.expenseCategories) { known.add(c.id); for (const x of c.subs) known.add(x.id); }
-  // A local date can be up to 14h ahead of UTC, so the export day is the date at UTC+14.
-  const lastDay = new Date(Date.parse(s.exportedAt) + 14 * 3_600_000).toISOString().slice(0, 10);
   const earlier = new Map<string, EntryRecord>();
   const reversed = new Set<string>();
   const entries: Entry[] = [];
@@ -132,7 +130,6 @@ function validated(s: Snapshot): Imported {
     if (r.debitId === r.creditId) throw new SnapshotError('sameDebitCredit');
     if (!known.has(r.debitId) || !known.has(r.creditId)) throw new SnapshotError('unknownAccount');
     if (!isDay(r.date)) throw new SnapshotError('malformed');
-    if (r.date > lastDay) throw new SnapshotError('dateAfterExport');
     if (r.kind === 'reversal') {
       const t = r.reverses === undefined ? undefined : earlier.get(r.reverses);
       if (!t || t.kind === 'reversal' || reversed.has(t.id) || r.debitId !== t.creditId || r.creditId !== t.debitId

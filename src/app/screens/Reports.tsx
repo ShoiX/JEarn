@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import {
-  formatMoney, monthLabel, monthReport, nextMonth, previousMonth, sixMonthReport, type YearMonth,
+  formatMoney, lastNavMonth, monthLabel, monthReport, nextMonth, previousMonth, sixMonthReport, type YearMonth,
 } from '../../core';
 import { useApp } from '../ctx';
 import { Icon } from '../icons';
@@ -26,7 +26,7 @@ export function Reports({ month, setMonth }: { month: YearMonth; setMonth: (m: Y
         <div class="row between pad-h8">
           <button class="navbtn" aria-label="Previous month" onClick={() => setMonth(previousMonth(month))}><Icon name="left" size={16} /></button>
           <span class="sub14">{monthLabel(month)}</span>
-          <button class="navbtn" aria-label="Next month" disabled={month >= thisMonth} onClick={() => setMonth(nextMonth(month))}><Icon name="right" size={16} /></button>
+          <button class="navbtn" aria-label="Next month" disabled={month >= lastNavMonth(ledger, thisMonth)} onClick={() => setMonth(nextMonth(month))}><Icon name="right" size={16} /></button>
         </div>
         <div class="tiles">
           {tile('Income', fmt(r.incomeMinor), 'inc')}

@@ -24,7 +24,6 @@ const IMPORT_ERRORS: Record<string, string> = {
   sameDebitCredit: 'An entry debits and credits the same account.',
   unknownAccount: 'An entry refers to an account or category that is not in the file.',
   badReversal: 'A reversal does not mirror the entry it voids.',
-  dateAfterExport: 'An entry is dated after the export date.',
 };
 const fail = (e: unknown) => alert(e instanceof Error ? e.message : String(e));
 const go = (p: Promise<unknown>) => { p.catch(fail); };

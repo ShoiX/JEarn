@@ -1,4 +1,4 @@
-import { isDay, monthOf, today, type Day, type YearMonth } from './calendar';
+import { isDay, monthOf, type Day, type YearMonth } from './calendar';
 import { isMinor } from './money';
 
 export type EntryKind = 'expense' | 'income' | 'transfer' | 'opening' | 'reversal';
@@ -26,7 +26,7 @@ export interface Entry {
 
 export type LedgerErrorCode =
   | 'invalidAmount' | 'sameAccount' | 'reversalNotPostable' | 'entryNotFound' | 'alreadyVoided'
-  | 'cannotVoidReversal' | 'cannotEdit' | 'dateNotCalendarDay' | 'dateInFuture' | 'invalidOpeningClass';
+  | 'cannotVoidReversal' | 'cannotEdit' | 'dateNotCalendarDay' | 'invalidOpeningClass';
 
 export class LedgerError extends Error {
   constructor(readonly code: LedgerErrorCode) { super(code); this.name = 'LedgerError'; }
@@ -70,7 +70,6 @@ export class Ledger {
     if (i.debit === i.credit) throw new LedgerError('sameAccount');
     if (i.kind === 'reversal') throw new LedgerError('reversalNotPostable');
     if (!isDay(i.date)) throw new LedgerError('dateNotCalendarDay');
-    if (i.date > today(i.now, i.timeZone)) throw new LedgerError('dateInFuture');
     return this.#append(i.kind, i.date, i.debit, i.credit, i.amountMinor, i.note ?? '', undefined, i.now);
   }
 

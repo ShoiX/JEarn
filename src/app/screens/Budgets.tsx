@@ -1,6 +1,6 @@
 import { useRef, useState } from 'preact/hooks';
 import {
-  available, barPercent, budgetAt, carryover, categoriesInView, evaluate, formatMoney, monthLabel, nextMonth, plainAmount,
+  available, barPercent, budgetAt, carryover, categoriesInView, evaluate, formatMoney, lastNavMonth, monthLabel, nextMonth, plainAmount,
   previousMonth, rolloverLine, spent, spentSub, subBudgetOverflow, subsInView, totalSpent, type YearMonth,
 } from '../../core';
 import { useApp } from '../ctx';
@@ -43,7 +43,7 @@ export function Budgets({ month, setMonth }: { month: YearMonth; setMonth: (m: Y
     <>
       <div class="large-title">
         <h1>Budgets</h1>
-        <MonthNav variant="plain" title={monthLabel(month, true)} onPrev={() => setMonth(previousMonth(month))} onNext={() => setMonth(nextMonth(month))} nextDisabled={month >= today.slice(0, 7)} />
+        <MonthNav variant="plain" title={monthLabel(month, true)} onPrev={() => setMonth(previousMonth(month))} onNext={() => setMonth(nextMonth(month))} nextDisabled={month >= lastNavMonth(ledger, today.slice(0, 7))} />
       </div>
       <div class="row between sub13 pad-h mb12"><span>Spent {fmt(totalSpent(ledger, cats, month))}</span><span>Available {fmt(totalAvail)}</span></div>
       <div class="cards">
