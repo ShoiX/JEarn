@@ -89,6 +89,12 @@ describe('home list', () => {
     l.post({ ...p, date: day(2026, 11, 3) });
     expect(lastNavMonth(l, ym(2026, 10))).toBe(ym(2026, 12));
   });
+  it('lastNavMonth ignores voided entries', () => {
+    const l = new Ledger([], uid);
+    const e = l.post({ kind: 'expense', debit: uid(), credit: uid(), amountMinor: 5, date: day(2027, 3, 1), now });
+    l.void(e.id, now);
+    expect(lastNavMonth(l, ym(2026, 10))).toBe(ym(2026, 10));
+  });
   it('dayLabel for a future day', () => {
     expect(dayLabel(day(2026, 10, 28), day(2026, 10, 27))).toBe('Wed 28 Oct');
   });

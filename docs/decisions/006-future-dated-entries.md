@@ -6,4 +6,4 @@
 
 **Decision:** An entry's `date` may be any calendar day, past or future, with no upper limit. Future-dated entries are normal ledger entries: balances include them at once, and budgets and reports count them in the month of their date. There is no "upcoming" state and no scheduling.
 
-**Consequences:** Import no longer rejects entries dated after the export day. `recordedAt` is still the real time of entry. The month switcher can go forward to the latest month that holds an entry. A reversal still mirrors its target's date.
+**Consequences:** Import no longer rejects entries dated after the export day. `recordedAt` is still the real time of entry. The month switcher can go forward to the latest month that holds a live (not voided) entry. A reversal still mirrors its target's date.

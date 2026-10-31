@@ -61,9 +61,9 @@ export function dayLabel(date: Day, todayDay: Day): string {
   return `${WEEKDAYS[weekdayIndex(date)]} ${+date.slice(8, 10)} ${MONTH_ABBR[+date.slice(5, 7) - 1]}`;
 }
 
-/** Latest month the month switcher may reach: the current month, or a later one that holds an entry. */
+/** Latest month the month switcher may reach: the current month, or a later one that holds a live (not voided) entry. */
 export function lastNavMonth(l: Ledger, thisMonth: YearMonth): YearMonth {
-  return l.entries.reduce((m, e) => (monthOf(e.date) > m ? monthOf(e.date) : m), thisMonth);
+  return l.visibleEntries.reduce((m, e) => (monthOf(e.date) > m ? monthOf(e.date) : m), thisMonth);
 }
 
 const join = (parts: string[]) => parts.filter(Boolean).join(' · ');

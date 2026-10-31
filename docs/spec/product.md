@@ -29,7 +29,7 @@ Bottom tab bar, 52pt tall, 5 slots: Home · Budgets · [+] · Reports · Setup. 
 ## Screens
 
 ### 1. Home
-- Header: month title ("October 2026", 26pt/500) + prev/next month buttons (36×36, 1pt `#3F424D` border, radius 8). Next disabled (30% opacity) on the current month, or on the latest later month that has an entry (future-dated entries stay reachable). Same rule on Budgets and Reports.
+- Header: month title ("October 2026", 26pt/500) + prev/next month buttons (36×36, 1pt `#3F424D` border, radius 8). Next disabled (30% opacity) on the current month, or on the latest later month that has a live (not voided) entry (future-dated entries stay reachable). Same rule on Budgets and Reports.
 - Summary card (bg `#232532`, radius 14, padding 16): label "Left to spend" / "Over budget" (13pt `#9397AB`); amount 38pt/500 (turns warn colour when over); 6pt progress bar (track `#3F424D`, fill accent or warn); row "Spent $X of $Y" left, "Income $Z" right (13pt `#B2B6CA`). Until any category has a budget for the month, the card instead shows "Spent this month" with the month's spending in the normal text colour, no progress bar, and "No budgets set yet" in place of "Spent $X of $Y".
 - Accounts: horizontal scroll of cards (min-width 112, bg `#232532`, radius 8, padding 10×12): name 12pt muted, balance 16pt/500.
 - Transactions for the month, grouped by date ("Today", "Yesterday", "Mon 6 Oct"). Row ≥52pt: 8pt category colour dot, title (subcategory name) 15pt, meta 12pt muted ("Category · Account · note"), amount right. Income `+$` in `#D2CEFD`; expense `−$` in text colour; transfer title "Transfer", meta "From → To", amount in `#B2B6CA`, grey dot.
