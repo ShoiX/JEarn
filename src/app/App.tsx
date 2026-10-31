@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { makeDirectory, monthOf, needsStarter, starterCategories, today as todayOf, type Entry, type YearMonth } from '../core';
 import { loadAll, openDb, putExpenseCat, putIncomeCat } from '../db/db';
 import { makeActions, type Actions, type Data } from './actions';
-import { boot } from './boot';
+import { boot, setStage } from './boot';
 import { AppCtx, colorMap, type Ctx } from './ctx';
 import { Icon, type IconName } from './icons';
 import { AddSheet } from './screens/AddSheet';
@@ -28,7 +28,9 @@ export function App() {
 
   useEffect(() => {
     const t0 = performance.now();
+    setStage('opening the database');
     openDb().then(async (db) => {
+      setStage('loading your data');
       let d = await loadAll(db);
       if (needsStarter(d)) {
         // Fresh install: add the starter categories once (reference data; archive or edit freely).

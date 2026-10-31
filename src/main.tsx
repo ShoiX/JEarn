@@ -1,9 +1,10 @@
 import { render } from 'preact';
 import { App } from './app/App';
-import { boot } from './app/boot';
+import { boot, setStage } from './app/boot';
 import './styles.css';
 
 boot.page = performance.now();
+setStage('starting');
 
 // If the app fails to show (blank, dark screen), show the error instead. Errors while it's on screen are left alone.
 const showError = (msg: string) => {
