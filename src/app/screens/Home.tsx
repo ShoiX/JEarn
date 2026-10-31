@@ -51,7 +51,7 @@ export function Home({ month, setMonth, openTx }: { month: YearMonth; setMonth: 
       </div>
 
       <SectionHeader>Transactions</SectionHeader>
-      {sel && <div class="chips fchip"><button class="chip" onClick={() => setAcct(null)}>{sel.name} ×</button></div>}
+      {sel && <div class="chips fchip"><button class="chip" aria-label={`Clear ${sel.name} filter`} onClick={() => setAcct(null)}>{sel.name} ×</button></div>}
       {sections.length === 0 && <div class="empty">{sel ? `No ${sel.name} transactions this month.` : 'No transactions this month. Tap + to add one.'}</div>}
       {sections.map((s) => (
         <div key={s.date}>
