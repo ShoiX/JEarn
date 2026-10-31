@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import {
-  accountClass, active, barPercent, categoriesInView, formatMoney, hasBudgets, homeSections, income, leftToSpend, monthLabel, nextMonth,
+  accountClass, accountTotals, active, barPercent, categoriesInView, formatMoney, hasBudgets, homeSections, income, leftToSpend, monthLabel, nextMonth,
   lastNavMonth, previousMonth, available, totalSpent, type YearMonth,
 } from '../../core';
 import { useApp } from '../ctx';
@@ -18,6 +18,7 @@ export function Home({ month, setMonth, openTx }: { month: YearMonth; setMonth: 
   const over = budgeted && left < 0;
   const [acct, setAcct] = useState<string | null>(null);
   const shown = active(accounts);
+  const totals = accountTotals(ledger, accounts);
   const sel = shown.find((a) => a.id === acct);
   const sections = homeSections(ledger, month, dir, today, c, sel?.id);
   const byId = new Map(ledger.entries.map((e) => [e.id, e]));
@@ -40,6 +41,12 @@ export function Home({ month, setMonth, openTx }: { month: YearMonth; setMonth: 
       </div>
 
       <SectionHeader>Accounts</SectionHeader>
+      {shown.length > 0 && (
+        <div class="row between sub13 acct-totals">
+          <span>Assets {formatMoney(c, totals.assets)}</span>
+          {totals.hasLiability && <span>Owed {formatMoney(c, totals.owed)}</span>}
+        </div>
+      )}
       <div class="strip">
         {shown.map((a) => (
           <button class={'acard' + (sel ? (sel === a ? ' sel' : ' dim') : '')} key={a.id} aria-pressed={sel === a} onClick={() => setAcct(sel === a ? null : a.id)}>

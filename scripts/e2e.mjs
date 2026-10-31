@@ -299,6 +299,7 @@ flow('Fresh start', async () => {
   eq('home title is the current month', await text('.large-title h1'), monthTitle(THIS_MONTH));
   check('home: next-month button disabled on current month', await ev(`document.querySelector('.monthnav [aria-label="Next month"]').disabled`));
   has('home: empty accounts hint', await body(), 'Add an account in Setup.');
+  eq('home totals: nothing shown without accounts', await exists('.acct-totals'), false);
   has('home: empty transactions hint', await body(), 'No transactions this month. Tap + to add one.');
   has('home: Spent this month label (no budgets yet)', await body(), 'Spent this month');
   const d = await dump();
@@ -348,6 +349,9 @@ flow('Setup: accounts', async () => {
   await addAccount('BDO', '10000');
   has('account BDO shows balance', await row('BDO'), php(1000000));
   has('account BDO type Bank', await row('BDO'), 'Bank');
+  await tab('Home');
+  eq('home totals: assets only while no liability account exists', await texts('.acct-totals span'), ['Assets ' + php(1000000)]);
+  await tab('Setup');
   await addAccount('Visa', '2500', 'Credit card');
   has('credit card shows amount owed', await row('Visa'), php(250000));
   has('credit card type label', await row('Visa'), 'Credit card');
@@ -388,6 +392,7 @@ flow('Setup: accounts', async () => {
   const c = await cards();
   eq('home account cards', c, { BDO: php(1000000), Visa: php(250000), Wallet: php(50000) });
   await shot('02-home-accounts');
+  eq('home totals: Assets left, Owed right', await texts('.acct-totals span'), [`Assets ${php(1050000)}`, `Owed ${php(250000)}`]);
 
   // currency locked now
   await tab('Setup');
@@ -1049,6 +1054,7 @@ flow('Layout: worst-case data on a 375×667 screen', async () => {
   await addTx({ type: 'transfer', keys: '123456.78', from: LONG, to: 'BDO' });
   await addTx({ type: 'income', keys: '5000', account: LONG, category: 'Salary', note: NOTE });
   await tab('Home'); await audit('Home with long names'); await shot('17-layout-home');
+  check('home totals: both amounts fully visible on one line each (no truncation)', await ev(`[...document.querySelectorAll('.acct-totals span')].every((t) => t.getBoundingClientRect().height < 20 && t.scrollWidth <= t.clientWidth + 1)`));
 
   // many accounts: the transfer picker's chip rows must keep full height (the panel scrolls instead)
   await tab('Setup');
@@ -1160,7 +1166,7 @@ flow('Home: filter by account', async () => {
   await addTx({ type: 'transfer', keys: '1', from: 'BDO', to: 'Wallet' });
   await tab('Home');
   while ((await text('.large-title h1')) !== monthTitle(THIS_MONTH)) await click('.monthnav [aria-label="Previous month"]');
-  const full = await homeRows(), big = await text('.summary .big');
+  const full = await homeRows(), big = await text('.summary .big'), totals = (await texts('.acct-totals span')).join('|');
   const card = (name) => click('.acard', '~' + name);
   const pressed = (name) => ev(`${find('.acard', '~' + name)}.getAttribute('aria-pressed')`);
   const mentions = (r, name) => r.meta.includes(name);
@@ -1179,6 +1185,7 @@ flow('Home: filter by account', async () => {
   check('filter BDO: selected card full opacity, others dimmed to 50%', selS[1] === '1' && othS[1] === '0.5', show([selS, othS]));
   check('filter BDO: selected card has a different (accent) border colour', selS[0] !== othS[0], show([selS, othS]));
   eq('filter BDO: summary unchanged', await text('.summary .big'), big);
+  eq('filter BDO: totals unchanged', (await texts('.acct-totals span')).join('|'), totals);
   await shot('home-filter-bdo');
   await card('Wallet');
   const wal = await homeRows();

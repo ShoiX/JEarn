@@ -68,6 +68,7 @@ h1 { margin: 0; font-size: 34px; font-weight: 700; letter-spacing: 0.01em; }
 .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 
 /* accounts strip */
+.acct-totals { padding: 0 16px 8px; } /* edges line up with the card strip */
 .strip { display: flex; gap: 8px; overflow-x: auto; padding: 0 16px; }
 .strip::-webkit-scrollbar { display: none; }
 .acard { flex: none; min-width: 112px; padding: 9px 11px; border: 1px solid transparent; border-radius: 8px; background: var(--surface); display: flex; flex-direction: column; gap: 4px; }
