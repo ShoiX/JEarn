@@ -223,3 +223,4 @@ h1 { margin: 0; font-size: 34px; font-weight: 700; letter-spacing: 0.01em; }
 .drow { display: flex; justify-content: space-between; gap: 12px; min-height: 44px; align-items: center; padding: 0 12px; border-bottom: 0.5px solid var(--n900); font-size: 14px; }
 .drow:last-child { border-bottom: 0; } .dval { text-align: right; min-width: 0; overflow-wrap: anywhere; }
 .seg button:disabled { opacity: .5; } .seg button.on:disabled { opacity: 1; }
+.fatal { margin: 0; padding: calc(var(--safe-t) + 20px) 20px 20px; color: var(--text, #fff); font: 13px/1.4 ui-monospace, monospace; white-space: pre-wrap; word-break: break-word; }
