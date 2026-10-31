@@ -61,6 +61,11 @@ export function dayLabel(date: Day, todayDay: Day): string {
   return `${WEEKDAYS[weekdayIndex(date)]} ${+date.slice(8, 10)} ${MONTH_ABBR[+date.slice(5, 7) - 1]}`;
 }
 
+/** Latest month the month switcher may reach: the current month, or a later one that holds an entry. */
+export function lastNavMonth(l: Ledger, thisMonth: YearMonth): YearMonth {
+  return l.entries.reduce((m, e) => (monthOf(e.date) > m ? monthOf(e.date) : m), thisMonth);
+}
+
 const join = (parts: string[]) => parts.filter(Boolean).join(' · ');
 
 function row(e: Entry, dir: Directory, c: Currency): HomeRow {
@@ -92,7 +97,7 @@ export function homeSections(l: Ledger, month: YearMonth, dir: Directory, todayD
 
 // ---- Add Transaction draft
 export type TxType = 'expense' | 'income' | 'transfer';
-export type DraftErrorCode = 'invalidAmount' | 'missingAccount' | 'sameAccount' | 'dateInFuture' | 'missingCategory';
+export type DraftErrorCode = 'invalidAmount' | 'missingAccount' | 'sameAccount' | 'missingCategory';
 export class DraftError extends Error {
   constructor(readonly code: DraftErrorCode) { super(code); this.name = 'DraftError'; }
 }
@@ -117,7 +122,6 @@ export function validateDraft(d: TransactionDraft, c: Currency, now: Date, timeZ
   if (liveAmount(d.expression, c) <= 0) throw new DraftError('invalidAmount');
   if (!d.accountId || (d.type === 'transfer' && !d.toAccountId)) throw new DraftError('missingAccount');
   if (d.type === 'transfer' && d.accountId === d.toAccountId) throw new DraftError('sameAccount');
-  if (d.date > today(now, timeZone)) throw new DraftError('dateInFuture');
   if (d.type === 'expense' ? !(d.categoryId || d.subcategoryId) : d.type === 'income' && !d.categoryId) {
     throw new DraftError('missingCategory');
   }

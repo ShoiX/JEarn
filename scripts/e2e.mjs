@@ -239,7 +239,8 @@ const NOW = new Date();
 const TODAY = dayStr(NOW);
 const YESTERDAY = dayStr(new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate() - 1));
 const PREV15 = dayStr(new Date(NOW.getFullYear(), NOW.getMonth() - 1, 15));
-const FUTURE = dayStr(new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate() + 5));
+const TOMORROW = dayStr(new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate() + 1));
+const NEXT15 = dayStr(new Date(NOW.getFullYear(), NOW.getMonth() + 1, 15));
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const parse = (s) => new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10));
@@ -546,9 +547,9 @@ flow('Add transactions', async () => {
   for (let i = 0; i < 4; i++) await click('.key[aria-label=Delete]');
   eq('backspace clears amount', await text('.amount'), '₱0');
   await click('.pill', undefined, { nth: 1 });
-  eq('date input max = today', await ev(`document.querySelector('.dateinput').max`), TODAY);
-  await setNative('.dateinput', FUTURE, 'change'); await settle();
-  has('future date is not accepted (clamped to today)', await text('.pill:nth-of-type(2)'), 'Today');
+  check('date input has no max', !(await ev(`document.querySelector('.dateinput').max`)));
+  await setNative('.dateinput', TOMORROW, 'change'); await settle();
+  check('a future date is accepted (pill is not Today)', !(await text('.pill:nth-of-type(2)')).includes('Today'));
   check('panel stays open after a future change', await exists('.dateinput'));
   await setNative('.dateinput', PREV15, 'change'); await settle();
   check('date change keeps the panel open', await exists('.dateinput'));
@@ -660,7 +661,6 @@ flow('Add transactions', async () => {
   check('db: amounts are positive integers', d.entries.every((e) => Number.isSafeInteger(e.amountMinor) && e.amountMinor > 0));
   check('db: backdated entry has the picked date', d.entries.some((e) => e.date === PREV15 && e.amountMinor === 2500));
   check('db: dates are YYYY-MM-DD', d.entries.every((e) => /^\d{4}-\d{2}-\d{2}$/.test(e.date)));
-  check('db: no future-dated entry', d.entries.every((e) => e.date <= TODAY));
   noAlerts('add transactions');
 });
 
@@ -1072,6 +1072,36 @@ flow('Layout: worst-case data on a 375×667 screen', async () => {
   await click('.seg button', 'Last 6 months'); await audit('Reports 6 months'); 
   await tab('Home');
   check(`layout: no clipped controls in ${audits} audits`, clipped.size === 0, [...clipped].map(([n, w]) => `${n} @ ${w}`).join(' | '));
+});
+
+flow('Future-dated entries', async () => {
+  await tab('Home');
+  const num = (t) => Math.round(parseFloat(t.replace(/[^\d.-]/g, '')) * 100);
+  const bdo = async () => num((await cards()).BDO);
+  const before = await bdo();
+  const addOn = async (date, keys) => {
+    await openAdd();
+    await pressKeys(keys);
+    await click('.pill', undefined, { nth: 1 });
+    await setNative('.dateinput', date, 'change'); await settle();
+    await blurDate();
+    await click('.primary', 'Choose category');
+    await click('.catchip', 'Coffee');
+    await waitFor(`!document.querySelector('.sheet')`, 'saved future ' + date);
+    await settle();
+  };
+  await addOn(TOMORROW, '7');
+  eq('tomorrow: view jumps to its month', await text('.large-title h1'), monthTitle(TOMORROW));
+  check('tomorrow: listed in that month', (await homeRows()).some((r) => r.amt === php(700, '-') && r.title === 'Coffee'));
+  eq('tomorrow: balance includes it at once', await bdo(), before - 700);
+  await addOn(NEXT15, '9');
+  eq('next month: view jumps to its month', await text('.large-title h1'), monthTitle(NEXT15));
+  check('next month: listed in that month', (await homeRows()).some((r) => r.amt === php(900, '-') && r.title === 'Coffee'));
+  eq('next month: balance includes it too', await bdo(), before - 1600);
+  check('next-month button disabled at the latest month with an entry', await ev(`document.querySelector('.monthnav [aria-label="Next month"]').disabled`));
+  const d = await dump();
+  check('db: future entries keep their dates', d.entries.some((e) => e.date === TOMORROW && e.amountMinor === 700) && d.entries.some((e) => e.date === NEXT15 && e.amountMinor === 900));
+  noAlerts('future-dated entries');
 });
 
 flow('Persistence and offline', async () => {

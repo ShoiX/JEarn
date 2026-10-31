@@ -122,8 +122,8 @@ export function AddSheet({ edit, onClose, onSaved }: { edit?: Entry; onClose: ()
         <div class="inpanel row gap6">
           <button class={'chip' + (mode === 'today' ? ' on' : '')} onClick={() => { patch({ date: today }); setMode('today'); setPicker(null); }}>Today</button>
           <button class={'chip' + (mode === 'yesterday' ? ' on' : '')} onClick={() => { patch({ date: addDays(today, -1) }); setMode('yesterday'); setPicker(null); }}>Yesterday</button>
-          <input type="date" class={'dateinput' + (mode === 'custom' ? ' on' : '')} max={today} value={mode === 'custom' ? d.date : ''} aria-label="Pick a date"
-            onChange={(e) => { const v = e.currentTarget.value; if (v) { patch({ date: v > today ? today : v }); setMode('custom'); } }}
+          <input type="date" class={'dateinput' + (mode === 'custom' ? ' on' : '')} value={mode === 'custom' ? d.date : ''} aria-label="Pick a date"
+            onChange={(e) => { const v = e.currentTarget.value; if (v) { patch({ date: v }); setMode('custom'); } }}
             onBlur={() => { if (mode === 'custom') setPicker(null); }} />
         </div>
       )}

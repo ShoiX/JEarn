@@ -1,6 +1,6 @@
 import {
   accountClass, active, barPercent, categoriesInView, formatMoney, hasBudgets, homeSections, income, leftToSpend, monthLabel, nextMonth,
-  previousMonth, available, totalSpent, type YearMonth,
+  lastNavMonth, previousMonth, available, totalSpent, type YearMonth,
 } from '../../core';
 import { useApp } from '../ctx';
 import { accountIcon, Icon } from '../icons';
@@ -23,7 +23,7 @@ export function Home({ month, setMonth, openTx }: { month: YearMonth; setMonth: 
     <>
       <div class="large-title">
         <h1>{monthLabel(month)}</h1>
-        <MonthNav variant="round" title="" onPrev={() => setMonth(previousMonth(month))} onNext={() => setMonth(nextMonth(month))} nextDisabled={month >= thisMonth} />
+        <MonthNav variant="round" title="" onPrev={() => setMonth(previousMonth(month))} onNext={() => setMonth(nextMonth(month))} nextDisabled={month >= lastNavMonth(ledger, thisMonth)} />
       </div>
       <div class="summary">
         <div class="muted13">{!budgeted ? 'Spent this month' : over ? 'Over budget' : 'Left to spend'}</div>

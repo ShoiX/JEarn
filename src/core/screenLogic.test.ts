@@ -6,7 +6,7 @@ import { setBudget } from './budgets';
 import { AUD, JPY } from './money';
 import { Ledger, OPENING_BALANCES_ID, type EntryKind } from './ledger';
 import {
-  active, canChangeCurrency, canEdit, canImport, correctDraft, dayLabel, draftFromEntry, draftMatchesEntry, homeSections, isValidDraft,
+  active, canChangeCurrency, canEdit, canImport, correctDraft, dayLabel, draftFromEntry, lastNavMonth, draftMatchesEntry, homeSections, isValidDraft,
   makeDirectory, newDraft, pickable, postDraft, subBudgetOverflow, validateDraft, type TransactionDraft, type TxType,
 } from './screenLogic';
 import { day, expectCode, now, uid, UTC, ym } from './testSupport';
@@ -79,6 +79,19 @@ describe('home list', () => {
     expect(sec[0]?.rows.map((r) => r.id)).toEqual([c.id, b.id]); // seq desc within a day
     expect(sec.map((x) => x.rows.length)).toEqual([2, 1, 1]);
   });
+  it('lastNavMonth: current month, or the latest month with an entry if later', () => {
+    const l = new Ledger([], uid);
+    expect(lastNavMonth(l, ym(2026, 10))).toBe(ym(2026, 10));
+    const p = { kind: 'expense' as const, debit: uid(), credit: uid(), amountMinor: 5, now };
+    l.post({ ...p, date: day(2026, 9, 1) });
+    expect(lastNavMonth(l, ym(2026, 10))).toBe(ym(2026, 10));
+    l.post({ ...p, date: day(2026, 12, 3) });
+    l.post({ ...p, date: day(2026, 11, 3) });
+    expect(lastNavMonth(l, ym(2026, 10))).toBe(ym(2026, 12));
+  });
+  it('dayLabel for a future day', () => {
+    expect(dayLabel(day(2026, 10, 28), day(2026, 10, 27))).toBe('Wed 28 Oct');
+  });
   it('dayLabel format', () => {
     expect(dayLabel(day(2026, 10, 5), day(2026, 10, 27))).toBe('Mon 5 Oct');
     expect(dayLabel(day(2025, 1, 1), day(2026, 10, 27))).toBe('Wed 1 Jan');
@@ -149,10 +162,11 @@ describe('transaction draft', () => {
     delete e.accountId;
     expectCode(() => check(e), 'missingAccount');
   });
-  it('date not after today', () => {
+  it('future date is valid', () => {
     const d = draft('expense');
     d.date = day(2026, 10, 28);
-    expectCode(() => check(d), 'dateInFuture');
+    expect(() => check(d)).not.toThrow();
+    expect(isValidDraft(d, AUD, now, UTC)).toBe(true);
   });
   it('category rules', () => {
     const d = draft('expense');
@@ -258,7 +272,6 @@ describe('edit a transaction', () => {
     const e = s.post(s.base('transfer'));
     const d = draftFromEntry(e, s.cats, AUD)!;
     const n = s.l.entries.length;
-    expectCode(() => correctDraft(s.l, e.id, { ...d, date: day(2026, 12, 1) }, AUD, later, UTC), 'dateInFuture');
     expectCode(() => correctDraft(s.l, e.id, { ...d, toAccountId: d.accountId }, AUD, later, UTC), 'sameAccount');
     expectCode(() => correctDraft(s.l, e.id, { ...d, expression: '0' }, AUD, later, UTC), 'invalidAmount');
     expect(s.l.entries.length).toBe(n);

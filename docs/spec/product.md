@@ -29,7 +29,7 @@ Bottom tab bar, 52pt tall, 5 slots: Home · Budgets · [+] · Reports · Setup. 
 ## Screens
 
 ### 1. Home
-- Header: month title ("October 2026", 26pt/500) + prev/next month buttons (36×36, 1pt `#3F424D` border, radius 8). Next disabled (30% opacity) on current month.
+- Header: month title ("October 2026", 26pt/500) + prev/next month buttons (36×36, 1pt `#3F424D` border, radius 8). Next disabled (30% opacity) on the current month, or on the latest later month that has an entry (future-dated entries stay reachable). Same rule on Budgets and Reports.
 - Summary card (bg `#232532`, radius 14, padding 16): label "Left to spend" / "Over budget" (13pt `#9397AB`); amount 38pt/500 (turns warn colour when over); 6pt progress bar (track `#3F424D`, fill accent or warn); row "Spent $X of $Y" left, "Income $Z" right (13pt `#B2B6CA`). Until any category has a budget for the month, the card instead shows "Spent this month" with the month's spending in the normal text colour, no progress bar, and "No budgets set yet" in place of "Spent $X of $Y".
 - Accounts: horizontal scroll of cards (min-width 112, bg `#232532`, radius 8, padding 10×12): name 12pt muted, balance 16pt/500.
 - Transactions for the month, grouped by date ("Today", "Yesterday", "Mon 6 Oct"). Row ≥52pt: 8pt category colour dot, title (subcategory name) 15pt, meta 12pt muted ("Category · Account · note"), amount right. Income `+$` in `#D2CEFD`; expense `−$` in text colour; transfer title "Transfer", meta "From → To", amount in `#B2B6CA`, grey dot.
@@ -73,7 +73,7 @@ Sheet from top 28pt, bg `#232532`, top radius 14, slides up 260ms `cubic-bezier(
 - Amount display, right-aligned: optional expression line (14pt muted, e.g. "(12+3)×2") above the value (40pt/500; placeholder colour `#595D6C` when empty).
 - One row of compact pills: [wallet Account ⌄] [calendar Today ⌄] … [calculator toggle]. Pills 34pt, radius 8, 1pt `#3F424D` border (accent when open).
   - Account pill opens an inline panel (bg `#161826`, radius 8) with account chips; closes on pick. In Transfer mode the pill reads "From → To", the panel shows From and To rows, closes after picking To; border turns warn if From = To.
-  - Date pill opens a panel: Today, Yesterday, and a native `<input type="date">` (max = today). Today/Yesterday close the panel on pick. The date input applies each change and the panel closes when the picker is dismissed (blur), because iOS fires change while scrolling the wheel and when first opened.
+  - Date pill opens a panel: Today, Yesterday, and a native `<input type="date">`. Today/Yesterday close the panel on pick. The date input applies each change and the panel closes when the picker is dismissed (blur), because iOS fires change while scrolling the wheel and when first opened.
   - Calculator toggle: off = 3-column keypad (1–9, ., 0, ⌫; keys 54pt). On = 4-column keypad (C ( ) ÷ / 7 8 9 × / 4 5 6 − / 1 2 3 + / . 0 ⌫ =; keys 46pt; operator keys bg `#2B2741` text `#D2CEFD`; = bg `#423A6A`). Turning it off evaluates any expression into a plain amount.
 - Primary button (full width, 48pt, outline accent): "Choose category" — or "Save transfer" in Transfer mode. Disabled (40%) until amount > 0 (and From ≠ To).
 
