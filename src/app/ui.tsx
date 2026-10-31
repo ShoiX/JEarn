@@ -31,7 +31,8 @@ export function MonthNav({ title, onPrev, onNext, nextDisabled, variant }: {
   );
 }
 
-export const SectionHeader = ({ children }: { children: ComponentChildren }) => <div class="section-h">{children}</div>;
+export const SectionHeader = ({ children, right }: { children: ComponentChildren; right?: ComponentChildren }) =>
+  <div class="section-h">{right ? <><span>{children}</span><span class="totals">{right}</span></> : children}</div>;
 
 /** Bottom sheet: dimmed backdrop (tap to close), grabber (tap or drag down to close). */
 export function Sheet({ onClose, tall, children }: { onClose: () => void; tall: boolean; children: ComponentChildren }) {

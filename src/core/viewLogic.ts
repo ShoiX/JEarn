@@ -1,10 +1,10 @@
 import { monthLabel, previousMonth, type Day, type YearMonth } from './calendar';
 import type { Currency } from './money';
 import { formatMoney } from './money';
-import type { ExpenseCategory, SubCategory } from './accounts';
+import { accountClass, type Account, type ExpenseCategory, type SubCategory } from './accounts';
 import { spent, spentSub } from './budgets';
-import type { Entry, Ledger } from './ledger';
-import { dayLabel, type AmountKind, type Directory } from './screenLogic';
+import { isLiability, type Entry, type Ledger } from './ledger';
+import { active, dayLabel, type AmountKind, type Directory } from './screenLogic';
 
 /** Progress-bar fill, 0..100. No (or negative) budget: full if anything was spent, else empty. */
 export function barPercent(spentMinor: number, availableMinor: number): number {
@@ -59,4 +59,14 @@ export function detailRows(e: Entry, dir: Directory, c: Currency, todayDay: Day)
   const cat = dir.categoryName(e.debitId), sub = dir.name(e.debitId);
   return { kind: 'Expense', amountText: formatMoney(c, e.amountMinor, 'minus'), tone: 'expense',
     rows: [['Category', cat], ...(sub !== cat ? [['Subcategory', sub] as [string, string]] : []), ['Account', dir.name(e.creditId)], date, ...note] };
+}
+
+/** Home "Assets · Owed" totals over active accounts: the same all-time balances as the account cards. */
+export function accountTotals(l: Ledger, accounts: readonly Account[]): { assets: number; owed: number; hasLiability: boolean } {
+  const t = { assets: 0, owed: 0, hasLiability: false };
+  for (const a of active(accounts)) {
+    const cls = accountClass(a.type), b = l.balance(a.id, cls);
+    if (isLiability(cls)) { t.owed += b; t.hasLiability = true; } else t.assets += b;
+  }
+  return t;
 }
