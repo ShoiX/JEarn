@@ -131,11 +131,47 @@ const FIND = `((sel, text, nth, within) => {
 })`;
 const find = (sel, text, o = {}) => `${FIND}(${J(sel)}, ${J(text)}, ${o.nth ?? 0}, ${J(o.within)})`;
 const exists = (sel, text, o) => ev(`!!${find(sel, text, o)}`);
+// Layout audit: every enabled control must be reachable by a finger, i.e. not cut off by an ancestor that hides overflow
+// (a finger can't scroll an overflow:hidden box; scrollIntoView can, which is how a clipped button once passed).
+const AUDIT = `(() => {
+  const bad = [];
+  const name = (el) => (el.getAttribute('aria-label') || el.textContent.trim() || el.placeholder || el.tagName).slice(0, 40);
+  for (const el of document.querySelectorAll('button, input, select, textarea, a[href], [role=switch]')) {
+    if (el.disabled || el.type === 'file' || el.hidden) continue;
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height || getComputedStyle(el).visibility === 'hidden') continue;
+    const sb = el.closest('.swipe-body');
+    if (sb && new DOMMatrix(getComputedStyle(sb).transform).m41 !== 0) continue; // row slid open on purpose
+    // Walk up: a scroll container can bring the control into its own box, so from there on track that box instead;
+    // a container that hides overflow (no finger scrolling) must contain what's tracked.
+    let t = r.top, b = r.bottom, l = r.left, rt = r.right;
+    for (let p = el.parentElement; p && p !== document.documentElement; p = p.parentElement) {
+      const s = getComputedStyle(p), q = p.getBoundingClientRect();
+      const ys = /auto|scroll/.test(s.overflowY), xs = /auto|scroll/.test(s.overflowX);
+      const yh = /hidden|clip/.test(s.overflowY), xh = /hidden|clip/.test(s.overflowX);
+      if ((yh && (t < q.top - 1 || b > q.bottom + 1)) || (xh && (l < q.left - 1 || rt > q.right + 1))) { bad.push(name(el)); break; }
+      if (ys) { t = Math.max(q.top, Math.min(t, q.bottom)); b = Math.min(q.bottom, Math.max(b, q.top)); if (r.height <= q.height) { t = q.top; b = q.top + r.height; } }
+      if (xs) { if (r.width <= q.width) { l = q.left; rt = q.left + r.width; } }
+    }
+  }
+  return bad;
+})()`;
+const clipped = new Map(); // control -> where it was first seen clipped
+let audits = 0;
+const audit = async (where) => {
+  audits++;
+  for (const n of await ev(AUDIT)) if (!clipped.has(n)) { clipped.set(n, where); record(`layout: "${n}" reachable (${where})`, false, 'cut off by a container that hides overflow'); }
+};
 const click = async (sel, text, o = {}) => {
+  await audit(`before tapping ${sel}${text === undefined ? '' : ' ' + text}`);
   const r = await ev(`(() => { const el = ${find(sel, text, o)}; if (!el) return { err: 'missing' }; if (el.disabled) return { err: 'disabled' };
-    el.scrollIntoView({ block: 'center' }); const b = el.getBoundingClientRect(); const x = b.x + b.width / 2, y = b.y + b.height / 2;
-    const top = document.elementFromPoint(x, y); return { x, y, ok: top === el || el.contains(top) }; })()`);
+    const hid = []; for (let p = el.parentElement; p; p = p.parentElement) { const s = getComputedStyle(p); const y = /hidden|clip/.test(s.overflowY), x = /hidden|clip/.test(s.overflowX); if (y || x) hid.push([p, y && p.scrollTop, x && p.scrollLeft, y, x]); }
+    el.scrollIntoView({ block: 'center' });
+    const moved = hid.filter(([p, t, l, y, x]) => (y && Math.abs(p.scrollTop - t) > 2) || (x && Math.abs(p.scrollLeft - l) > 2)).map(([p, t, l]) => (p.id || p.className) + ':' + t + '->' + p.scrollTop + '/' + l + '->' + p.scrollLeft + ' sh=' + p.scrollHeight + ' ch=' + p.clientHeight).join(';');
+    const b = el.getBoundingClientRect(); const x = b.x + b.width / 2, y = b.y + b.height / 2;
+    const top = document.elementFromPoint(x, y); return { x, y, moved, ok: top === el || el.contains(top) }; })()`);
   if (r.err) throw new Error(`click ${sel}${text === undefined ? '' : ` "${text}"`}: ${r.err}`);
+  if (r.moved) record(`tap target reachable by finger: ${sel} ${text ?? ''}`, false, 'only reachable by scrolling a container that hides overflow: ' + r.moved);
   if (!r.ok) record(`tap target not obscured: ${sel} ${text ?? ''}`, false, 'another element covers the centre of the control');
   await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: r.x, y: r.y }] });
   await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
@@ -155,10 +191,31 @@ const key = async (k) => {
 };
 const setNative = (sel, value, event) => ev(`(() => { const el = document.querySelector(${J(sel)}); const d = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value');
   d.set.call(el, ${J(value)}); el.dispatchEvent(new Event(${J(event)}, { bubbles: true })); })()`);
+// iOS closes the date picker with Done, which blurs the input.
+const blurDate = async () => { await ev(`document.querySelector('.dateinput').dispatchEvent(new FocusEvent('blur'))`); await settle(); };
 const texts = (sel) => ev(`[...document.querySelectorAll(${J(sel)})].map((e) => e.textContent.trim())`);
 const text = (sel) => ev(`document.querySelector(${J(sel)})?.textContent.trim() ?? null`);
 const body = () => ev('document.body.innerText');
 const tab = (name) => click('.tab', name);
+// Real touch drag via CDP on a swipe row (found by its "Archive <name>" button): touchStart near the right, touchMove steps, touchEnd.
+const ACT = (name) => `.swipe-act[aria-label="Archive ${name}"]`;
+const touchDrag = async (x, y, dx, dy, steps = 6) => {
+  await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+  for (let i = 1; i <= steps; i++) {
+    await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + (dx * i) / steps, y: y + (dy * i) / steps }] });
+    await sleep(30); // slow enough that Chrome does not start a fling (a fling swallows the next tap)
+  }
+  await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await sleep(350); // snap animation
+};
+const swipe = async (name, dx = -100, dy = 0) => {
+  const r = await ev(`(() => { const el = document.querySelector(${J(ACT(name))}).nextElementSibling; el.scrollIntoView({ block: 'center' });
+    const b = el.getBoundingClientRect(); return { x: b.right - 25, y: b.y + b.height / 2 }; })()`);
+  await touchDrag(r.x, r.y, dx, dy);
+};
+const rowX = async (name) => { await sleep(250); return ev(`new DOMMatrix(getComputedStyle(document.querySelector(${J(ACT(name))}).nextElementSibling).transform).m41`); };
+const archive = async (name) => { await swipe(name); await sleep(150); await click(ACT(name)); };
+
 const takeAlerts = () => alerts.splice(0);
 
 const homeRows = () => ev(`[...document.querySelectorAll('.section-h.day')].flatMap((h) => [...h.nextElementSibling.querySelectorAll('.txrow')].map((r) => ({
@@ -182,7 +239,8 @@ const NOW = new Date();
 const TODAY = dayStr(NOW);
 const YESTERDAY = dayStr(new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate() - 1));
 const PREV15 = dayStr(new Date(NOW.getFullYear(), NOW.getMonth() - 1, 15));
-const FUTURE = dayStr(new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate() + 5));
+const TOMORROW = dayStr(new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate() + 1));
+const NEXT15 = dayStr(new Date(NOW.getFullYear(), NOW.getMonth() + 1, 15));
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const parse = (s) => new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10));
@@ -196,6 +254,17 @@ const yestThis = YESTERDAY.slice(0, 7) === THIS_MONTH; // when run on the 1st, "
 const KEYMAP = { '*': '×', '/': '÷', '-': '−' };
 const pressKeys = async (s) => { for (const ch of s) await click('.key', KEYMAP[ch] ?? ch); };
 const openAdd = async () => { await click('.plus'); await waitFor(`!!document.querySelector('.sheet')`, 'add sheet'); await sleep(400); };
+async function expandArchived() {
+  if ((await ev(`document.querySelector('.archtoggle')?.getAttribute('aria-expanded')`)) !== 'true') await click('.archtoggle');
+}
+async function openEdit (rowText) {
+  await click('.txrow', rowText);
+  await waitFor(`!!document.querySelector('.sheet')`, 'detail sheet');
+  await click('button', 'Edit');
+  await waitFor(`document.querySelector('.sheettitle')?.textContent === 'Edit Transaction'`, 'edit sheet');
+  await sleep(300);
+};
+
 async function addTx({ type: kind = 'expense', keys, calc = false, calcOff = false, account, from, to, date, customDate, note, category, middle }) {
   await openAdd();
   if (kind !== 'expense') await click('.seg button', kind[0].toUpperCase() + kind.slice(1));
@@ -207,7 +276,7 @@ async function addTx({ type: kind = 'expense', keys, calc = false, calcOff = fal
   if (from) { await click('.pill', undefined, { nth: 0 }); await click('.inpanel .chips .chip', from, { nth: 0 }); }
   if (to) { if (!(await exists('.inpanel'))) await click('.pill', undefined, { nth: 0 }); await click('.inpanel .chips .chip', to, { nth: 1 }); }
   if (date) { await click('.pill', undefined, { nth: 1 }); await click('.inpanel .chip', date); }
-  if (customDate) { await click('.pill', undefined, { nth: 1 }); await setNative('.dateinput', customDate, 'change'); await settle(); }
+  if (customDate) { await click('.pill', undefined, { nth: 1 }); await setNative('.dateinput', customDate, 'change'); await blurDate(); }
   if (kind === 'transfer') { await click('.primary', 'Save transfer'); }
   else {
     await click('.primary', 'Choose category');
@@ -233,6 +302,7 @@ flow('Fresh start', async () => {
   eq('home title is the current month', await text('.large-title h1'), monthTitle(THIS_MONTH));
   check('home: next-month button disabled on current month', await ev(`document.querySelector('.monthnav [aria-label="Next month"]').disabled`));
   has('home: empty accounts hint', await body(), 'Add an account in Setup.');
+  eq('home totals: nothing shown without accounts', await exists('.acct-totals'), false);
   has('home: empty transactions hint', await body(), 'No transactions this month. Tap + to add one.');
   has('home: Spent this month label (no budgets yet)', await body(), 'Spent this month');
   const d = await dump();
@@ -282,6 +352,9 @@ flow('Setup: accounts', async () => {
   await addAccount('BDO', '10000');
   has('account BDO shows balance', await row('BDO'), php(1000000));
   has('account BDO type Bank', await row('BDO'), 'Bank');
+  await tab('Home');
+  eq('home totals: assets only while no liability account exists', await texts('.acct-totals span'), ['Assets ' + php(1000000)]);
+  await tab('Setup');
   await addAccount('Visa', '2500', 'Credit card');
   has('credit card shows amount owed', await row('Visa'), php(250000));
   has('credit card type label', await row('Visa'), 'Credit card');
@@ -304,24 +377,30 @@ flow('Setup: accounts', async () => {
   check('opening entries are dated today', d.entries.every((e) => e.date === TODAY));
 
   // archive / restore
-  await click('.iconbtn[aria-label="Archive Wallet"]');
-  await waitFor(`!document.querySelector('.iconbtn[aria-label="Archive Wallet"]')`, 'Wallet archived');
+  await archive('Wallet');
+  await waitFor(`!document.querySelector('.swipe-act[aria-label="Archive Wallet"]')`, 'Wallet archived');
   has('archived section lists Wallet', (await body()).toLowerCase(), 'archived');
+  check('archived group collapsed by default', !(await exists('.srow', 'Wallet')) && (await text('.archtoggle')).includes('1 item'));
+  await expandArchived();
+  eq('archived toggle reports expanded', await ev(`document.querySelector('.archtoggle').getAttribute('aria-expanded')`), 'true');
   check('archived account has Restore', await exists('.srow .link', 'Restore', { within: ['.srow', 'Wallet'] }));
   await tab('Home');
   check('home hides archived account', !Object.keys(await cards()).includes('Wallet'));
   await tab('Setup');
+  check('archived group collapses again after leaving Setup', !(await exists('.srow .link', 'Restore')));
+  await expandArchived();
   await click('.link', 'Restore', { within: ['.srow', 'Wallet'] });
-  await waitFor(`!!document.querySelector('.iconbtn[aria-label="Archive Wallet"]')`, 'Wallet restored');
+  await waitFor(`!!document.querySelector('.swipe-act[aria-label="Archive Wallet"]')`, 'Wallet restored');
   has('restored account back in list with type kept', await row('Wallet'), 'Cash');
-  await click('.iconbtn[aria-label="Archive Old"]'); // stays archived for the export test
-  await waitFor(`!document.querySelector('.iconbtn[aria-label="Archive Old"]')`, 'Old archived');
+  await archive('Old'); // stays archived for the export test
+  await waitFor(`!document.querySelector('.swipe-act[aria-label="Archive Old"]')`, 'Old archived');
   check('db: Old has archivedAt', !!(await dump()).accounts.find((a) => a.name === 'Old').archivedAt);
 
   await tab('Home');
   const c = await cards();
   eq('home account cards', c, { BDO: php(1000000), Visa: php(250000), Wallet: php(50000) });
   await shot('02-home-accounts');
+  eq('home totals: Assets left, Owed right', await texts('.acct-totals span'), [`Assets ${php(1050000)}`, `Owed ${php(250000)}`]);
 
   // currency locked now
   await tab('Setup');
@@ -344,19 +423,21 @@ flow('Setup: categories and rollover', async () => {
   await click('.primary.small', 'Add');
   await waitFor(`[...document.querySelectorAll('.subline')].some((b) => b.textContent.includes('Vet'))`, 'Vet sub');
   check('subcategory added', (await texts('.subline')).includes('Vet'));
-  await click('.iconbtn[aria-label="Archive Vet"]');
-  await waitFor(`!document.querySelector('.iconbtn[aria-label="Archive Vet"]')`, 'Vet archived');
+  await archive('Vet');
+  await waitFor(`!document.querySelector('.swipe-act[aria-label="Archive Vet"]')`, 'Vet archived');
+  await expandArchived();
   has('archived sub listed as Pets › Vet', await body(), 'Pets › Vet');
   await click('.link', 'Restore', { within: ['.srow', 'Pets › Vet'] });
-  await waitFor(`!!document.querySelector('.iconbtn[aria-label="Archive Vet"]')`, 'Vet restored');
+  await waitFor(`!!document.querySelector('.swipe-act[aria-label="Archive Vet"]')`, 'Vet restored');
   check('subcategory restored', (await texts('.subline')).includes('Vet'));
-  await click('.iconbtn[aria-label="Archive Vet"]'); // left archived for the export test
-  await waitFor(`!document.querySelector('.iconbtn[aria-label="Archive Vet"]')`, 'Vet archived again');
+  await archive('Vet'); // left archived for the export test
+  await waitFor(`!document.querySelector('.swipe-act[aria-label="Archive Vet"]')`, 'Vet archived again');
   await click('.catbtn', '~Pets'); // collapse
 
-  await click('.iconbtn[aria-label="Archive Pets"]');
+  await archive('Pets');
   await waitFor(`![...document.querySelectorAll('.catbtn')].some((b) => b.textContent.includes('Pets'))`, 'Pets archived');
   check('category archived (hidden from list)', !(await listed('Pets')));
+  await expandArchived();
   await click('.link', 'Restore', { within: ['.srow', 'Pets'] });
   await waitFor(`[...document.querySelectorAll('.catbtn')].some((b) => b.textContent.includes('Pets'))`, 'Pets restored');
   check('category restored', await listed('Pets'));
@@ -364,9 +445,9 @@ flow('Setup: categories and rollover', async () => {
   await click('.addbtn', 'Add income category');
   await type('input[placeholder="Income category"]', 'Freelance');
   await click('.primary.small', 'Add');
-  await waitFor(`!!document.querySelector('.iconbtn[aria-label="Archive Freelance"]')`, 'Freelance income');
-  await click('.iconbtn[aria-label="Archive Freelance"]'); // stays archived
-  await waitFor(`!document.querySelector('.iconbtn[aria-label="Archive Freelance"]')`, 'Freelance archived');
+  await waitFor(`!!document.querySelector('.swipe-act[aria-label="Archive Freelance"]')`, 'Freelance income');
+  await archive('Freelance'); // stays archived
+  await waitFor(`!document.querySelector('.swipe-act[aria-label="Archive Freelance"]')`, 'Freelance archived');
   check('db: Freelance archived', !!(await dump()).incomeCats.find((c) => c.name === 'Freelance').archivedAt);
 
   // rollover
@@ -392,6 +473,93 @@ flow('Setup: categories and rollover', async () => {
   noAlerts('categories');
 });
 
+flow('Setup: swipe and add-form gestures', async () => {
+  await tab('Setup');
+  check('swipe footnote shown', (await body()).includes('Swipe left on a row to archive it. Archived items can be restored at the bottom.'));
+  check('no archive icon buttons', !(await exists('.iconbtn')));
+  const archivedBefore = (await dump()).accounts.filter((a) => a.archivedAt).length;
+  const tappable = (sel) => ev(`(() => { const el = document.querySelector(${J(sel)}); const b = el.getBoundingClientRect(); const t = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2); return t === el || el.contains(t); })()`);
+  await ev(`document.querySelector(${J(ACT('BDO'))}).nextElementSibling.scrollIntoView({ block: 'center' })`);
+  check('archive button covered while closed', !(await tappable(ACT('BDO'))));
+  await swipe('BDO', -20);
+  eq('short swipe snaps back', await rowX('BDO'), 0);
+  eq('short swipe archives nothing', (await dump()).accounts.filter((a) => a.archivedAt).length, archivedBefore);
+  await swipe('BDO', 0, -60);
+  eq('vertical drag does not open the row', await rowX('BDO'), 0);
+  await swipe('BDO');
+  eq('swipe left opens the row', await rowX('BDO'), -80);
+  check('archive button tappable when open', await tappable(ACT('BDO')));
+  await click('.section-h', 'Currency');
+  eq('tap elsewhere closes the open row', await rowX('BDO'), 0);
+  await swipe('BDO');
+  await swipe('Visa');
+  eq('second row open', await rowX('Visa'), -80);
+  eq('opening a second row closes the first', await rowX('BDO'), 0);
+  await click('.section-h', 'Currency');
+  // like iOS: with a row open, a tap on another control only closes the row
+  await swipe('BDO');
+  await click('.typebtn', undefined, { within: ['.srow-wrap', 'Visa'] }); // next row: no scrolling needed
+  eq('tap on another control closes the open row', await rowX('BDO'), 0);
+  check('...without acting on that control', !(await exists('.panel')));
+  // VoiceOver / keyboard: focusing the hidden Archive button opens the row
+  await ev(`document.querySelector(${J(ACT('Visa'))}).focus()`);
+  eq('focusing Archive opens the row', await rowX('Visa'), -80);
+  await click('.section-h', 'Currency');
+  // category row: tapping an open row's content closes it and does not expand it
+  const housingOpen = () => ev(`!!([...document.querySelectorAll('.srow-wrap')].find((w) => w.querySelector('.catbtn')?.textContent.includes('Housing'))).querySelector('.catbody')`);
+  await swipe('Housing');
+  eq('Housing row open', await rowX('Housing'), -80);
+  await click('.catbtn', '~Housing');
+  eq('tap on open row content closes it', await rowX('Housing'), 0);
+  check('...and does not expand the category', !(await housingOpen()));
+  await click('.catbtn', '~Housing'); // expand: subcategories are swipeable too
+  const sub = await ev(`[...document.querySelectorAll('.srow-wrap')].find((w) => w.querySelector('.catbtn')?.textContent.includes('Housing')).querySelector('.subline .grow').textContent`);
+  await swipe(sub);
+  eq('subcategory row opens by swipe', await rowX(sub), -80);
+  await click('.section-h', 'Currency');
+  await click('.catbtn', '~Housing'); // collapse
+
+  // add-account form: tap outside closes it (typed input discarded); Escape closes it
+  const accounts = async () => (await dump()).accounts.length;
+  const n = await accounts();
+  const form = () => exists('input[placeholder="Account name"]');
+  await click('.addbtn', 'Add account');
+  check('add form open', await form());
+  await click('.section-h', 'Currency');
+  check('tap outside empty add-account form closes it', !(await form()));
+  await click('.addbtn', 'Add account');
+  await type('input[placeholder="Account name"]', 'Ghost');
+  await click('.section-h', 'Currency');
+  check('tap outside with typed name closes it', !(await form()));
+  eq('...and adds nothing', await accounts(), n);
+  await click('.addbtn', 'Add account');
+  await type('input[placeholder="Account name"]', 'Ghost');
+  const pt = await ev(`(() => { const b = [...document.querySelectorAll('.section-h')].find((h) => h.textContent.includes('Expense')).getBoundingClientRect(); return { x: b.x + 40, y: b.y + b.height / 2 }; })()`);
+  await touchDrag(pt.x, pt.y + 120, 0, -150);
+  check('scrolling does not close the add-account form', await form());
+  await click('.catbtn', '~Bills');
+  check('tap on a category closes the form', !(await form()));
+  check('...without expanding the category (tap swallowed)', !(await ev(`!!([...document.querySelectorAll('.srow-wrap')].find((w) => w.querySelector('.catbtn')?.textContent.includes('Bills'))).querySelector('.catbody')`)));
+  eq('...and adds nothing (category tap)', await accounts(), n);
+  await click('.addbtn', 'Add account');
+  await type('input[placeholder="Account name"]', 'Ghost');
+  await key('Escape');
+  check('Escape closes add-account form', !(await form()));
+  eq('...and adds nothing (Escape)', await accounts(), n);
+  noAlerts('swipe gestures');
+});
+
+flow('Switching tabs after scrolling', async () => {
+  await tab('Setup');
+  await ev(`window.__oldScroll = document.querySelector('.scroll')`);
+  for (let k = 0; k < 3; k++) await touchDrag(200, 550, 0, -400, 8);
+  check('Setup scrolled down', (await ev(`document.querySelector('.scroll').scrollTop`)) > 300);
+  await tab('Home');
+  check('new tab gets a fresh scroll box (iOS ignores scrollTo while coasting)', await ev(`document.querySelector('.scroll') !== window.__oldScroll`));
+  eq('Home starts at the top', await ev(`document.querySelector('.scroll').scrollTop`), 0);
+  check('Home title on screen', await ev(`(() => { const b = document.querySelector('.large-title h1').getBoundingClientRect(); return b.top >= 0 && b.bottom <= innerHeight; })()`));
+});
+
 flow('Add transactions', async () => {
   await tab('Home');
   // sheet basics
@@ -402,9 +570,15 @@ flow('Add transactions', async () => {
   for (let i = 0; i < 4; i++) await click('.key[aria-label=Delete]');
   eq('backspace clears amount', await text('.amount'), '₱0');
   await click('.pill', undefined, { nth: 1 });
-  eq('date input max = today', await ev(`document.querySelector('.dateinput').max`), TODAY);
-  await setNative('.dateinput', FUTURE, 'change'); await settle();
-  has('future date is not accepted (clamped to today)', await text('.pill:nth-of-type(2)'), 'Today');
+  check('date input has no max', !(await ev(`document.querySelector('.dateinput').max`)));
+  await setNative('.dateinput', TOMORROW, 'change'); await settle();
+  check('a future date is accepted (pill is not Today)', !(await text('.pill:nth-of-type(2)')).includes('Today'));
+  check('panel stays open after a future change', await exists('.dateinput'));
+  await setNative('.dateinput', PREV15, 'change'); await settle();
+  check('date change keeps the panel open', await exists('.dateinput'));
+  check('pill shows the picked date at once', !(await text('.pill:nth-of-type(2)')).includes('Today'));
+  await blurDate();
+  check('blur (picker dismissed) closes the panel', !(await exists('.dateinput')));
   await shot('04-add-sheet');
   await click('.textbtn', 'Cancel');
   check('Cancel closes the sheet', !(await exists('.sheet')));
@@ -510,7 +684,6 @@ flow('Add transactions', async () => {
   check('db: amounts are positive integers', d.entries.every((e) => Number.isSafeInteger(e.amountMinor) && e.amountMinor > 0));
   check('db: backdated entry has the picked date', d.entries.some((e) => e.date === PREV15 && e.amountMinor === 2500));
   check('db: dates are YYYY-MM-DD', d.entries.every((e) => /^\d{4}-\d{2}-\d{2}$/.test(e.date)));
-  check('db: no future-dated entry', d.entries.every((e) => e.date <= TODAY));
   noAlerts('add transactions');
 });
 
@@ -674,13 +847,6 @@ flow('Reports', async () => {
 
 flow('Edit a transaction', async () => {
   await tab('Home');
-  const openEdit = async (rowText) => {
-    await click('.txrow', rowText);
-    await waitFor(`!!document.querySelector('.sheet')`, 'detail sheet');
-    await click('button', 'Edit');
-    await waitFor(`document.querySelector('.sheettitle')?.textContent === 'Edit Transaction'`, 'edit sheet');
-    await sleep(300);
-  };
   const saved = async () => { await waitFor(`!document.querySelector('.sheet')`, 'edit sheet to close'); await settle(); };
 
   // expense: add one to edit
@@ -866,7 +1032,7 @@ flow('Clear site data, rejected imports, round trip', async () => {
   check('imported: reversal present', d.entries.some((e) => e.kind === 'reversal'));
   eq('imported db == pre-export db (entries)', canon(d.entries), canon(exportedDump.entries));
   check('Import hidden once ledger has entries', !(await exists('.addbtn', 'Import data')));
-  const arch = await body();
+  await expandArchived(); const arch = await body();
   check('archived group restored (account, income cat, sub)', ['Old', 'Freelance', 'Pets › Vet'].every((n) => arch.includes(n)));
   check('currency locked after import', await ev(`document.querySelector('select[aria-label=Currency]').disabled`));
   await tab('Home');
@@ -874,6 +1040,198 @@ flow('Clear site data, rejected imports, round trip', async () => {
   check('imported: voided entry hidden on Home', !(await exists('.txrow', '~Groceries')));
   check('imported: Home lists entries', (await homeRows()).length >= 4);
   await shot('13-after-import');
+});
+
+flow('Layout: worst-case data on a 375×667 screen', async () => {
+  const LONG = 'Metrobank Peso Savings Joint Account';
+  const CAT = 'Household Maintenance and Repairs', SUB = 'Plumbing, Electrical and Aircon Servicing';
+  const NOTE = 'Paid the plumber for the kitchen sink and the aircon cleaning, split with my brother, receipt in drawer';
+  await tab('Setup');
+  await click('.addbtn', 'Add account');
+  await type('input[placeholder="Account name"]', LONG);
+  await type('input[placeholder="Balance"]', '9999999.99');
+  await click('.primary.small', 'Add');
+  await waitFor(`[...document.querySelectorAll('.srow.acct')].some((r) => r.textContent.includes(${J(LONG)}))`, 'long account');
+  await click('.addbtn', 'Add category');
+  await type('input[placeholder="Category name"]', CAT); await key('Enter');
+  await click('.catbtn', '~' + CAT);
+  await click('.addbtn', 'Add subcategory');
+  await type('input[placeholder="Subcategory name"]', SUB); await key('Enter');
+  await waitFor(`[...document.querySelectorAll('.subline')].some((r) => r.textContent.includes(${J(SUB)}))`, 'long subcategory');
+  await audit('Setup with long names'); await shot('16-layout-setup');
+
+  await addTx({ keys: '987654.32', account: LONG, category: SUB, note: NOTE });
+  await addTx({ type: 'transfer', keys: '123456.78', from: LONG, to: 'BDO' });
+  await addTx({ type: 'income', keys: '5000', account: LONG, category: 'Salary', note: NOTE });
+  await tab('Home'); await audit('Home with long names'); await shot('17-layout-home');
+  check('home totals: both amounts fully visible on one line each (no truncation)', await ev(`[...document.querySelectorAll('.acct-totals span')].every((t) => t.getBoundingClientRect().height < 20 && t.scrollWidth <= t.clientWidth + 1)`));
+
+  // many accounts: the transfer picker's chip rows must keep full height (the panel scrolls instead)
+  await tab('Setup');
+  for (const n of ['Maya Wallet', 'GCash Savings', 'UnionBank Credit Card', 'Pag-IBIG MP2', 'Emergency Fund Cash']) {
+    await click('.addbtn', 'Add account');
+    await type('input[placeholder="Account name"]', n);
+    await type('input[placeholder="Balance"]', '100');
+    await click('.primary.small', 'Add');
+    await waitFor(`[...document.querySelectorAll('.srow.acct')].some((r) => r.textContent.includes(${J(n)}))`, 'account ' + n);
+  }
+  await tab('Home');
+  await openAdd();
+  await click('.seg button', 'Transfer');
+  await click('.pill', undefined, { nth: 0 });
+  const squashed = await ev(`[...document.querySelectorAll('.inpanel > *')].filter((el) => el.getBoundingClientRect().height + 1 < el.scrollHeight).length`);
+  eq('many accounts: no squashed rows in the account picker', squashed, 0);
+  check('many accounts: picker lists every account twice', await ev(`document.querySelectorAll('.inpanel .chip').length`) >= 16);
+  check('many accounts: keypad hidden while picking an account', !(await exists('.keypad')));
+  eq('many accounts: every From chip fully visible without scrolling', await ev(`(() => { const p = document.querySelector('.inpanel').getBoundingClientRect(); return [...document.querySelectorAll('.inpanel .chips')[0].querySelectorAll('.chip')].filter((c) => { const r = c.getBoundingClientRect(); return r.top < p.top || r.bottom > p.bottom; }).length; })()`), 0);
+  await audit('Transfer picker with many accounts'); await shot('22-layout-many-accounts');
+  await click('.inpanel .chip', 'Emergency Fund Cash', { nth: 1 });
+  has('many accounts: last To chip is tappable', await text('.pill:nth-of-type(1)'), 'Emergency Fund Cash');
+  check('many accounts: keypad back after picking To', await exists('.keypad'));
+  await click('.textbtn', 'Cancel'); await waitFor(`!document.querySelector('.sheet')`, 'add closed'); await settle();
+
+  const detail = async (title, label) => {
+    await click('.txrow', '~' + title);
+    await waitFor(`!!document.querySelector('.sheet')`, 'detail sheet'); await sleep(400);
+    await audit(`detail sheet: ${label}`);
+    await shot('18-layout-detail-' + label);
+    check(`detail (${label}): Void button reachable`, (await ev(AUDIT)).every((n) => n !== 'Void transaction'));
+    await click('.textbtn', 'Done'); await waitFor(`!document.querySelector('.sheet')`, 'detail closed'); await settle();
+  };
+  await detail(SUB, 'expense-with-note');
+  await detail('Transfer', 'transfer');
+  await detail('Salary', 'income-with-note');
+
+  await click('.txrow', '~' + SUB);
+  await waitFor(`!!document.querySelector('.sheet')`, 'detail sheet'); await sleep(400);
+  await click('.editbtn', 'Edit'); await sleep(400);
+  await audit('edit sheet'); await shot('19-layout-edit');
+  await click('.textbtn', 'Cancel'); await waitFor(`!document.querySelector('.sheet')`, 'edit closed'); await settle();
+
+  await tab('Budgets'); await audit('Budgets with long names'); await shot('20-layout-budgets');
+  await tab('Reports'); await audit('Reports with long names'); await shot('21-layout-reports');
+  await click('.seg button', 'Last 6 months'); await audit('Reports 6 months'); 
+  await tab('Home');
+  check(`layout: no clipped controls in ${audits} audits`, clipped.size === 0, [...clipped].map(([n, w]) => `${n} @ ${w}`).join(' | '));
+});
+
+flow('Future-dated entries', async () => {
+  await tab('Home');
+  const num = (t) => Math.round(parseFloat(t.replace(/[^\d.-]/g, '')) * 100);
+  const bdo = async () => num((await cards()).BDO);
+  const before = await bdo();
+  const addOn = async (date, keys) => {
+    await openAdd();
+    await pressKeys(keys);
+    await click('.pill', undefined, { nth: 1 });
+    await setNative('.dateinput', date, 'change'); await settle();
+    await blurDate();
+    await click('.primary', 'Choose category');
+    await click('.catchip', 'Coffee');
+    await waitFor(`!document.querySelector('.sheet')`, 'saved future ' + date);
+    await settle();
+  };
+  await addOn(TOMORROW, '7');
+  eq('tomorrow: view jumps to its month', await text('.large-title h1'), monthTitle(TOMORROW));
+  check('tomorrow: listed in that month', (await homeRows()).some((r) => r.amt === php(700, '-') && r.title === 'Coffee'));
+  eq('tomorrow: balance includes it at once', await bdo(), before - 700);
+  await addOn(NEXT15, '9');
+  eq('next month: view jumps to its month', await text('.large-title h1'), monthTitle(NEXT15));
+  check('next month: listed in that month', (await homeRows()).some((r) => r.amt === php(900, '-') && r.title === 'Coffee'));
+  eq('next month: balance includes it too', await bdo(), before - 1600);
+  check('next-month button disabled at the latest month with an entry', await ev(`document.querySelector('.monthnav [aria-label="Next month"]').disabled`));
+  // edit an entry dated today to tomorrow
+  await addTx({ keys: '4', category: 'Coffee', note: 'move me' });
+  await tab('Home');
+  await click('.monthnav [aria-label="Previous month"]'); await settle();
+  if ((await text('.large-title h1')) !== monthTitle(THIS_MONTH)) { await click('.monthnav [aria-label="Next month"]'); await settle(); }
+  await openEdit('~move me');
+  await click('.pill', undefined, { nth: 1 });
+  await setNative('.dateinput', TOMORROW, 'change'); await settle();
+  has('edit: pill shows the future date', await text('.pill:nth-of-type(2)'), dayLabel(TOMORROW));
+  await blurDate();
+  await click('.primary', 'Choose category');
+  await click('.catchip', 'Coffee');
+  await waitFor(`!document.querySelector('.sheet')`, 'edit to future saved');
+  await settle();
+  const all = (await dump()).entries, moved = all.filter((e) => e.note === 'move me');
+  eq('edit: moved entry now dated tomorrow', moved.map((e) => e.date), [TODAY, TOMORROW]);
+  check('edit: original voided', all.some((e) => e.kind === 'reversal' && e.reverses === moved[0].id));
+  eq('edit: view jumps to the new date\'s month', await text('.large-title h1'), monthTitle(TOMORROW));
+  check('edit: moved entry listed', (await homeRows()).some((r) => r.meta.includes('move me')));
+  const d = await dump();
+  check('db: future entries keep their dates', d.entries.some((e) => e.date === TOMORROW && e.amountMinor === 700) && d.entries.some((e) => e.date === NEXT15 && e.amountMinor === 900));
+  noAlerts('future-dated entries');
+});
+
+flow('Home: filter by account', async () => {
+  await tab('Home');
+  while ((await text('.large-title h1')) !== monthTitle(THIS_MONTH)) await click('.monthnav [aria-label="Previous month"]');
+  await tab('Setup');
+  await click('.addbtn', 'Add account');
+  await type('input[placeholder="Account name"]', 'Spare');
+  await click('.primary.small', 'Add');
+  await waitFor(`[...document.querySelectorAll('.srow.acct')].some((r) => r.textContent.includes('Spare'))`, 'account Spare');
+  await tab('Home');
+  await addTx({ type: 'transfer', keys: '1', from: 'BDO', to: 'Wallet' });
+  await tab('Home');
+  while ((await text('.large-title h1')) !== monthTitle(THIS_MONTH)) await click('.monthnav [aria-label="Previous month"]');
+  const full = await homeRows(), big = await text('.summary .big'), totals = (await texts('.acct-totals span')).join('|');
+  const card = (name) => click('.acard', '~' + name);
+  const pressed = (name) => ev(`${find('.acard', '~' + name)}.getAttribute('aria-pressed')`);
+  const mentions = (r, name) => r.meta.includes(name);
+  check('filter: unfiltered list has several rows', full.length > 3);
+  eq('filter: no chip at first', await exists('.fchip'), false);
+  await card('BDO');
+  const bdo = await homeRows();
+  check('filter BDO: rows shown, fewer than all', bdo.length > 0 && bdo.length < full.length);
+  check('filter BDO: every row mentions BDO', bdo.every((r) => mentions(r, 'BDO')), JSON.stringify(bdo.map((r) => r.meta)));
+  check('filter BDO: transfer listed', bdo.some((r) => r.title === 'Transfer' && r.meta === 'BDO → Wallet'));
+  eq('filter BDO: aria-pressed true', await pressed('BDO'), 'true');
+  eq('filter BDO: others not pressed', await pressed('Wallet'), 'false');
+  eq('filter BDO: chip text', await text('.fchip .chip'), 'BDO ×');
+  const sty = (name) => ev(`(() => { const c = getComputedStyle(${find('.acard', '~' + name)}); return [c.borderTopColor, c.opacity]; })()`);
+  const [selS, othS] = [await sty('BDO'), await sty('Wallet')];
+  check('filter BDO: selected card full opacity, others dimmed to 50%', selS[1] === '1' && othS[1] === '0.5', show([selS, othS]));
+  check('filter BDO: selected card has a different (accent) border colour', selS[0] !== othS[0], show([selS, othS]));
+  eq('filter BDO: summary unchanged', await text('.summary .big'), big);
+  eq('filter BDO: totals unchanged', (await texts('.acct-totals span')).join('|'), totals);
+  await shot('home-filter-bdo');
+  await card('Wallet');
+  const wal = await homeRows();
+  check('filter switch: every row mentions Wallet', wal.length > 0 && wal.every((r) => mentions(r, 'Wallet')));
+  check('filter: transfer also under Wallet', wal.some((r) => r.meta === 'BDO → Wallet'));
+  eq('filter switch: chip text', await text('.fchip .chip'), 'Wallet ×');
+  eq('filter switch: BDO no longer pressed', await pressed('BDO'), 'false');
+  await click('.monthnav [aria-label="Previous month"]'); await settle();
+  eq('filter survives month change: chip', await text('.fchip .chip'), 'Wallet ×');
+  eq('filter survives month change: summary-card unaffected, card pressed', await pressed('Wallet'), 'true');
+  check('filter survives month change: rows only Wallet', (await homeRows()).every((r) => mentions(r, 'Wallet')));
+  await click('.monthnav [aria-label="Next month"]'); await settle();
+  await click('.fchip .chip');
+  eq('chip clears: all rows back', (await homeRows()).length, full.length);
+  eq('chip clears: no chip', await exists('.fchip'), false);
+  eq('chip clears: nothing pressed', await pressed('BDO'), 'false');
+  await card('BDO'); await card('BDO');
+  eq('tap selected card clears: all rows back', (await homeRows()).length, full.length);
+  eq('tap selected card clears: no chip', await exists('.fchip'), false);
+  await card('Spare');
+  eq('empty account: message', await text('.empty'), 'No Spare transactions this month.');
+  eq('empty account: chip', await text('.fchip .chip'), 'Spare ×');
+  await tab('Budgets'); await tab('Home');
+  eq('leaving Home resets: no chip', await exists('.fchip'), false);
+  eq('leaving Home resets: all rows', (await homeRows()).length, full.length);
+  noAlerts('filter by account');
+});
+
+flow('Page itself never scrolls (double tap cannot push the tab bar off)', async () => {
+  await tab('Home');
+  eq('html/body overflow hidden', await ev(`[getComputedStyle(document.documentElement).overflow, getComputedStyle(document.body).overflow].join()`), 'hidden,hidden');
+  eq('double-tap zoom off (touch-action)', await ev(`getComputedStyle(document.body).touchAction`), 'manipulation');
+  await ev(`window.scrollTo(0, 500); document.scrollingElement.scrollTop = 500; 1`);
+  eq('page scroll stays at 0', await ev(`document.scrollingElement.scrollTop`), 0);
+  const tb = await ev(`JSON.stringify(document.querySelector('.tabbar').getBoundingClientRect().bottom)`);
+  check('tab bar sits at the bottom of the screen (±2px)', Math.abs(+tb - await ev(`innerHeight`)) <= 2, String(tb));
 });
 
 flow('Persistence and offline', async () => {
@@ -911,6 +1269,16 @@ flow('Persistence and offline', async () => {
   await send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
 });
 
+flow('Crash shows the error, not a blank screen', async () => {
+  await ev(`setTimeout(() => { throw new Error('boom test'); }); 1`);
+  await sleep(200);
+  check('an error while the app is showing leaves it alone', await exists('.tabbar') && !(await exists('.fatal')));
+  await ev(`document.querySelector('.tabbar').remove(); setTimeout(() => { throw new Error('boom test'); }); 1`);
+  await sleep(200);
+  has('error text replaces the app', await text('.fatal'), 'boom test');
+  has('error text says data is safe', await text('.fatal'), 'Your data is safe');
+});
+
 // ---------- run ----------
 process.on('unhandledRejection', (e) => { record('unhandled rejection in e2e script', false, String(e)); });
 for (const [name, fn] of flows) {
@@ -920,7 +1288,7 @@ for (const [name, fn] of flows) {
     record(`flow "${name}" aborted`, false, e.stack?.split('\n').slice(0, 2).join(' ') ?? String(e));
     await shot('abort-' + name.replace(/\W+/g, '-')).catch(() => {});
   }
-  const fresh = errors.slice(nErr);
+  const fresh = errors.slice(nErr).filter((e) => !e.includes('boom test')); // the crash flow throws on purpose
   check(`${name}: no console errors / exceptions`, fresh.length === 0, fresh.join(' | '));
 }
 

@@ -119,12 +119,10 @@ describe('snapshot import validation', () => {
   it('duplicate id', () => reject('duplicateId', (s) => { s.entries[3]!.id = s.entries[2]!.id; }));
   it('reversal without target', () => reject('badReversal', (s) => { delete s.entries[5]!.reverses; }));
   it('non-reversal with target', () => reject('badReversal', (s) => { s.entries[3]!.reverses = s.entries[2]!.id; }));
-  it('date after export day', () => reject('dateAfterExport', (s) => { s.entries[2]!.date = '2026-10-28'; }));
-  it('local today ahead of UTC allowed', () => {
+  it('entry dated after the export day is allowed', () => {
     const s = world().snapshot();
-    s.exportedAt = '2026-10-27T12:00:00.000Z'; // 28 Oct 02:00 in UTC+14
-    s.entries[2]!.date = '2026-10-28';
-    s.entries[5]!.date = '2026-10-28'; // keep the reversal mirroring its target
+    s.entries[2]!.date = '2026-12-28';
+    s.entries[5]!.date = '2026-12-28'; // keep the reversal mirroring its target
     expect(() => roundTrip(s)).not.toThrow();
   });
   it('bad date string', () => reject('malformed', (s) => { s.entries[2]!.date = '2026-02-30'; }));

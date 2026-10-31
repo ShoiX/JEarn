@@ -5,7 +5,7 @@ import { Ledger } from './ledger';
 import { AUD, JPY, PHP, currencySymbol } from './money';
 import { makeDirectory } from './screenLogic';
 import {
-  barPercent, categoriesInView, detailRows, openingEntry, rolloverLine, rolloverNote, subsInView,
+  accountTotals, barPercent, categoriesInView, detailRows, openingEntry, rolloverLine, rolloverNote, subsInView,
 } from './viewLogic';
 import { day, now, uid, UTC, ym } from './testSupport';
 
@@ -116,5 +116,34 @@ describe('detailRows', () => {
     expect(detailRows(post('transfer', cash.id, bank.id), dir, PHP, t)).toMatchObject({
       kind: 'Transfer', amountText: '₱12.50', tone: 'transfer', rows: [['From', 'Everyday'], ['To', 'Wallet'], ['Date', 'Tue 6 Oct']],
     });
+  });
+});
+
+describe('accountTotals', () => {
+  const setup = () => {
+    const l = new Ledger([], uid);
+    const bank = newAccount('Bank', 'bank'), cash = newAccount('Cash', 'cash'), card = newAccount('Card', 'credit'), old = newAccount('Old', 'savings', { archivedAt: now.toISOString() });
+    const open = (a: typeof bank, amountMinor: number, date = day(2026, 10, 1)) => l.postOpening({ account: a.id, accountClass: a.type, amountMinor, date, now, timeZone: UTC });
+    return { l, bank, cash, card, old, open };
+  };
+  it('sums active asset and liability balances', () => {
+    const { l, bank, cash, card, open } = setup();
+    open(bank, 500); open(cash, 70); open(card, 120);
+    expect(accountTotals(l, [bank, cash, card])).toEqual({ assets: 570, owed: 120, hasLiability: true });
+  });
+  it('excludes archived accounts', () => {
+    const { l, bank, old, open } = setup();
+    open(bank, 500); open(old, 900);
+    expect(accountTotals(l, [bank, old])).toEqual({ assets: 500, owed: 0, hasLiability: false });
+  });
+  it('no liability account: hasLiability false', () => {
+    const { l, bank, open } = setup();
+    open(bank, 5);
+    expect(accountTotals(l, [bank]).hasLiability).toBe(false);
+  });
+  it('includes future-dated entries', () => {
+    const { l, bank, open } = setup();
+    open(bank, 500, day(2099, 1, 1));
+    expect(accountTotals(l, [bank]).assets).toBe(500);
   });
 });

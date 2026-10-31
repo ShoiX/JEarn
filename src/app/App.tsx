@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { makeDirectory, monthOf, needsStarter, starterCategories, today as todayOf, type Entry, type YearMonth } from '../core';
 import { loadAll, openDb, putExpenseCat, putIncomeCat } from '../db/db';
 import { makeActions, type Actions, type Data } from './actions';
+import { boot } from './boot';
 import { AppCtx, colorMap, type Ctx } from './ctx';
 import { Icon, type IconName } from './icons';
 import { AddSheet } from './screens/AddSheet';
@@ -24,9 +25,9 @@ export function App() {
   const [month, setMonth] = useState<YearMonth>(() => monthOf(todayOf(new Date())));
   const [sheet, setSheet] = useState<Sheet>(null);
   const latest = useRef<Data | null>(null);
-  const scroller = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const t0 = performance.now();
     openDb().then(async (db) => {
       let d = await loadAll(db);
       if (needsStarter(d)) {
@@ -36,6 +37,7 @@ export function App() {
         for (const c of s.incomeCategories) await putIncomeCat(db, c);
         d = { ...d, ...s };
       }
+      boot.data = performance.now() - t0;
       latest.current = d;
       setActions(makeActions(db, () => latest.current!, (n) => { latest.current = n; setData(n); }));
       setData(d);
@@ -58,7 +60,7 @@ export function App() {
   if (error) return <div class="boot">Could not open the database: {error}</div>;
   if (!ctx) return <div class="boot" />;
 
-  const goTab = (t: Tab) => { setTab(t); scroller.current?.scrollTo(0, 0); };
+  const goTab = (t: Tab) => setTab(t);
   const saved = (e: Entry | null) => { setSheet(null); if (e) setMonth(monthOf(e.date)); if (tab === 'setup') setTab('home'); };
   const close = () => setSheet(null);
   const tabButton = (t: Tab) => (
@@ -69,7 +71,9 @@ export function App() {
 
   return (
     <AppCtx.Provider value={ctx}>
-      <div class="scroll" ref={scroller}>
+      {/* A fresh scroll box per tab starts at the top. iOS ignores scrollTo() while a scroll is still coasting,
+          which left a shorter tab showing the empty space below its content. */}
+      <div class="scroll" key={tab}>
         {tab === 'home' && <Home month={month} setMonth={setMonth} openTx={(id) => setSheet({ kind: 'tx', id })} />}
         {tab === 'budgets' && <Budgets month={month} setMonth={setMonth} />}
         {tab === 'reports' && <Reports month={month} setMonth={setMonth} />}

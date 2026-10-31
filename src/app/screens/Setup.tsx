@@ -1,11 +1,12 @@
-import { useRef, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import {
-  ACCOUNT_TYPES, CURRENCIES, SnapshotError, accountClass, active, canChangeCurrency, canImport, carryover,
+  ACCOUNT_TYPES, CURRENCIES, bootLine, SnapshotError, accountClass, active, canChangeCurrency, canImport, carryover,
   evaluate, formatMoney, importSnapshot, monthOf, openingEntry, plainAmount, rolloverNote, type AccountType,
 } from '../../core';
+import { boot } from '../boot';
 import { useApp } from '../ctx';
 import { accountIcon, Icon } from '../icons';
-import { focusOnce, SectionHeader, Switch } from '../ui';
+import { focusOnce, SectionHeader, SwipeRow, Switch } from '../ui';
 
 const TYPE_LABEL: Record<AccountType, string> = {
   bank: 'Bank', savings: 'Savings', credit: 'Credit card', cash: 'Cash', investment: 'Investment', loan: 'Loan',
@@ -23,7 +24,6 @@ const IMPORT_ERRORS: Record<string, string> = {
   sameDebitCredit: 'An entry debits and credits the same account.',
   unknownAccount: 'An entry refers to an account or category that is not in the file.',
   badReversal: 'A reversal does not mirror the entry it voids.',
-  dateAfterExport: 'An entry is dated after the export date.',
 };
 const fail = (e: unknown) => alert(e instanceof Error ? e.message : String(e));
 const go = (p: Promise<unknown>) => { p.catch(fail); };
@@ -60,8 +60,15 @@ function AddAccount({ onDone }: { onDone: () => void }) {
     if (opening === null || opening < 0) return alert('Enter a valid opening balance.');
     actions.addAccount(name.trim(), type, opening).then(onDone, fail);
   };
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // A tap (not a scroll) outside closes the form; the tap itself is swallowed so nothing shifts under the finger.
+    const away = (e: Event) => { if (!root.current?.contains(e.target as Node)) { e.preventDefault(); e.stopPropagation(); onDone(); } };
+    document.addEventListener('click', away, true);
+    return () => document.removeEventListener('click', away, true);
+  }, []);
   return (
-    <div class="addrow wrap">
+    <div class="addrow wrap" ref={root} onKeyDown={(e) => { if (e.key === 'Escape') onDone(); }}>
       <input class="field grow2" placeholder="Account name" value={name} ref={focusOnce} onInput={(e) => setName(e.currentTarget.value)} />
       <input class="field bal" placeholder="Balance" inputMode="decimal" value={bal} onInput={(e) => setBal(e.currentTarget.value)} />
       <TypeChips value={type} onPick={setType} tone="form" />
@@ -75,6 +82,7 @@ export function Setup() {
   const { ledger, accounts, expenseCategories, incomeCategories } = data;
   const thisMonth = monthOf(today);
   const [panel, setPanel] = useState<{ id: string; mode: 'type' | 'opening'; value: string } | null>(null);
+  const [openRow, setOpenRow] = useState<string | null>(null);
   const [adding, setAdding] = useState<string | null>(null);
   const [openCats, setOpenCats] = useState<Set<string>>(new Set());
   const file = useRef<HTMLInputElement>(null);
@@ -107,7 +115,8 @@ export function Setup() {
   const archivedCats = expenseCategories.filter((x) => x.archivedAt);
   const archivedSubs = expenseCategories.flatMap((x) => x.subs.filter((s) => s.archivedAt).map((s) => ({ cat: x, sub: s })));
   const archivedIncome = incomeCategories.filter((x) => x.archivedAt);
-  const hasArchived = archivedAccounts.length + archivedCats.length + archivedSubs.length + archivedIncome.length > 0;
+  const archivedCount = archivedAccounts.length + archivedCats.length + archivedSubs.length + archivedIncome.length;
+  const [showArchived, setShowArchived] = useState(false);
   const locked = !canChangeCurrency(ledger);
 
   return (
@@ -121,6 +130,7 @@ export function Setup() {
           const op = openingEntry(ledger, a.id);
           return (
             <div class="srow-wrap" key={a.id}>
+              <SwipeRow id={a.id} name={a.name} openId={openRow} setOpenId={setOpenRow} onArchive={() => { setOpenRow(null); go(actions.archiveAccount(a.id, true)); }}>
               <div class="srow acct">
                 <span class="muted"><Icon name={accountIcon(a.type)} size={20} /></span>
                 <div class="grow">
@@ -130,8 +140,8 @@ export function Setup() {
                   </button>
                 </div>
                 <span class="muted14">{fmt(ledger.balance(a.id, accountClass(a.type)))}</span>
-                <button class="iconbtn" aria-label={`Archive ${a.name}`} onClick={() => go(actions.archiveAccount(a.id, true))}><Icon name="archive" size={18} /></button>
               </div>
+              </SwipeRow>
               {p?.mode === 'type' && (
                 <div class="panel">
                   <TypeChips value={a.type} tone="row" onPick={(t) => { go(actions.setAccountType(a.id, t)); setPanel(null); }} />
@@ -156,6 +166,7 @@ export function Setup() {
         })}
         {adding === 'account' ? <AddAccount onDone={() => setAdding(null)} /> : <button class="addbtn" onClick={() => setAdding('account')}><Icon name="plus" size={16} />Add account</button>}
       </div>
+      <div class="footnote pad-h">Swipe left on a row to archive it. Archived items can be restored at the bottom.</div>
 
       <SectionHeader>Expense categories</SectionHeader>
       <div class="group">
@@ -164,13 +175,14 @@ export function Setup() {
           const note = rolloverNote(cat, carryover(ledger, cat, thisMonth), thisMonth, c);
           return (
             <div class="srow-wrap" key={cat.id}>
+              <SwipeRow id={cat.id} name={cat.name} openId={openRow} setOpenId={setOpenRow} onArchive={() => { setOpenRow(null); go(actions.archiveExpenseCategory(cat.id, true)); }}>
               <div class="srow">
                 <button class="catbtn" onClick={() => toggleCat(cat.id)}>
                   <i class="dot" style={{ background: colors.get(cat.id) }} /><span class="grow left">{cat.name}</span>
                   <span class="muted13">{subs.length}</span><span class="muted"><Icon name={open ? 'up' : 'down'} size={14} /></span>
                 </button>
-                <button class="iconbtn" aria-label={`Archive ${cat.name}`} onClick={() => go(actions.archiveExpenseCategory(cat.id, true))}><Icon name="archive" size={18} /></button>
               </div>
+              </SwipeRow>
               {open && (
                 <div class="catbody">
                   <div class="rollrow">
@@ -179,10 +191,9 @@ export function Setup() {
                     <Switch on={cat.rollover} label="Roll over to next month" onChange={(v) => go(actions.setRollover(cat.id, v, thisMonth))} />
                   </div>
                   {subs.map((s) => (
-                    <div class="subline" key={s.id}>
-                      <span class="grow">{s.name}</span>
-                      <button class="iconbtn" aria-label={`Archive ${s.name}`} onClick={() => go(actions.archiveSubcategory(cat.id, s.id, true))}><Icon name="x" size={16} /></button>
-                    </div>
+                    <SwipeRow key={s.id} id={s.id} name={s.name} openId={openRow} setOpenId={setOpenRow} onArchive={() => { setOpenRow(null); go(actions.archiveSubcategory(cat.id, s.id, true)); }}>
+                      <div class="subline"><span class="grow">{s.name}</span></div>
+                    </SwipeRow>
                   ))}
                   {adding === 'sub:' + cat.id
                     ? <NameAdd placeholder="Subcategory name" onCancel={() => setAdding(null)} onAdd={(n) => { go(actions.addSubcategory(cat.id, n)); setAdding(null); }} />
@@ -200,24 +211,31 @@ export function Setup() {
       <SectionHeader>Income categories</SectionHeader>
       <div class="group">
         {active(incomeCategories).map((x) => (
-          <div class="srow" key={x.id}>
-            <span class="grow">{x.name}</span>
-            <button class="iconbtn" aria-label={`Archive ${x.name}`} onClick={() => go(actions.archiveIncomeCategory(x.id, true))}><Icon name="archive" size={18} /></button>
-          </div>
+          <SwipeRow key={x.id} id={x.id} name={x.name} openId={openRow} setOpenId={setOpenRow} onArchive={() => { setOpenRow(null); go(actions.archiveIncomeCategory(x.id, true)); }}>
+            <div class="srow"><span class="grow">{x.name}</span></div>
+          </SwipeRow>
         ))}
         {adding === 'income'
           ? <NameAdd placeholder="Income category" onCancel={() => setAdding(null)} onAdd={(n) => { go(actions.addIncomeCategory(n)); setAdding(null); }} />
           : <button class="addbtn" onClick={() => setAdding('income')}><Icon name="plus" size={16} />Add income category</button>}
       </div>
 
-      {hasArchived && (
+      {archivedCount > 0 && (
         <>
           <SectionHeader>Archived</SectionHeader>
           <div class="group">
+            <div class="srow">
+              <button class="catbtn archtoggle" aria-expanded={showArchived} onClick={() => setShowArchived(!showArchived)}>
+                <span class="grow left">{archivedCount} {archivedCount === 1 ? 'item' : 'items'}</span>
+                <span class="muted"><Icon name={showArchived ? 'up' : 'down'} size={14} /></span>
+              </button>
+            </div>
+            {showArchived && <>
             {archivedAccounts.map((a) => <ArchivedRow key={a.id} name={a.name} onRestore={() => go(actions.archiveAccount(a.id, false))} />)}
             {archivedCats.map((x) => <ArchivedRow key={x.id} name={x.name} onRestore={() => go(actions.archiveExpenseCategory(x.id, false))} />)}
             {archivedSubs.map(({ cat, sub }) => <ArchivedRow key={sub.id} name={`${cat.name} › ${sub.name}`} onRestore={() => go(actions.archiveSubcategory(cat.id, sub.id, false))} />)}
             {archivedIncome.map((x) => <ArchivedRow key={x.id} name={x.name} onRestore={() => go(actions.archiveIncomeCategory(x.id, false))} />)}
+            </>}
           </div>
         </>
       )}
@@ -238,6 +256,7 @@ export function Setup() {
         <button class="addbtn" onClick={() => go(exportData())}>Export data</button>
         {canImport(ledger) && <button class="addbtn" onClick={() => file.current?.click()}>Import data</button>}
       </div>
+      {boot.data > 0 && <div class="footnote pad-h">{bootLine(boot)}</div>}
       <input ref={file} type="file" accept="application/json,.json" hidden
         onChange={(e) => { const f = e.currentTarget.files?.[0]; e.currentTarget.value = ''; if (f) void importFile(f); }} />
       <div class="spacer" />

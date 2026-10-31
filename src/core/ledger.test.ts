@@ -85,8 +85,13 @@ describe('post dates', () => {
     }
     expect(l.entries).toEqual([]);
   });
-  it('rejects a future date', () => {
-    expectCode(() => mk().post({ ...base, kind: 'expense', date: day(2026, 10, 28), debit: uid(), credit: uid(), amountMinor: 5 }), 'dateInFuture');
+  it('accepts a future date; it counts in balances and in its own month', () => {
+    const l = mk(), cat = uid(), bank = uid();
+    l.post({ ...base, kind: 'expense', date: day(2026, 12, 28), debit: cat, credit: bank, amountMinor: 5 });
+    expect(l.entries.length).toBe(1);
+    expect(l.balance(bank, 'bank')).toBe(-5);
+    expect(l.monthlyNet(new Set([cat]), ym(2026, 12))).toBe(5);
+    expect(l.monthlyNet(new Set([cat]), ym(2026, 10))).toBe(0);
   });
   it('31 Oct stays in October in UTC+11', () => {
     const l = mk(), cat = uid();
@@ -95,13 +100,14 @@ describe('post dates', () => {
     expect(l.monthlyNet(new Set([cat]), ym(2026, 10))).toBe(5);
     expect(l.monthlyNet(new Set([cat]), ym(2026, 11))).toBe(0);
   });
-  it('local today in UTC+14 accepted, same date rejected in UTC', () => {
+  it('local today in UTC+14 accepted, same date also accepted in UTC', () => {
     const l = mk();
     const n = new Date('2026-10-26T10:30:00Z'); // 27 Oct 00:30 local, still 26 Oct in UTC
     const p = { kind: 'expense' as const, date: day(2026, 10, 27), debit: uid(), credit: uid(), amountMinor: 5, now: n };
     l.post({ ...p, timeZone: KIRITIMATI });
     expect(l.entries.length).toBe(1);
-    expectCode(() => l.post({ ...p, timeZone: UTC }), 'dateInFuture');
+    l.post({ ...p, timeZone: UTC });
+    expect(l.entries.length).toBe(2);
   });
 });
 
@@ -122,7 +128,6 @@ describe('postOpening', () => {
   });
   it('validates like post', () => {
     expectCode(() => mk().postOpening({ account: uid(), accountClass: 'cash', amountMinor: 0, ...base }), 'invalidAmount');
-    expectCode(() => mk().postOpening({ account: uid(), accountClass: 'cash', amountMinor: 1, ...base, date: day(2027, 1, 1) }), 'dateInFuture');
   });
   it('fixed Opening Balances id', () => {
     expect(OPENING_BALANCES_ID).toBe('00000000-0000-0000-0000-0000000000b0');

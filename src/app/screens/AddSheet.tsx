@@ -122,11 +122,12 @@ export function AddSheet({ edit, onClose, onSaved }: { edit?: Entry; onClose: ()
         <div class="inpanel row gap6">
           <button class={'chip' + (mode === 'today' ? ' on' : '')} onClick={() => { patch({ date: today }); setMode('today'); setPicker(null); }}>Today</button>
           <button class={'chip' + (mode === 'yesterday' ? ' on' : '')} onClick={() => { patch({ date: addDays(today, -1) }); setMode('yesterday'); setPicker(null); }}>Yesterday</button>
-          <input type="date" class={'dateinput' + (mode === 'custom' ? ' on' : '')} max={today} value={mode === 'custom' ? d.date : ''} aria-label="Pick a date"
-            onChange={(e) => { const v = e.currentTarget.value; if (v) { patch({ date: v > today ? today : v }); setMode('custom'); setPicker(null); } }} />
+          <input type="date" class={'dateinput' + (mode === 'custom' ? ' on' : '')} value={mode === 'custom' ? d.date : ''} aria-label="Pick a date"
+            onChange={(e) => { const v = e.currentTarget.value; if (v) { patch({ date: v }); setMode('custom'); } }}
+            onBlur={() => { if (mode === 'custom') setPicker(null); }} />
         </div>
       )}
-      <div class={'keypad ' + keyCol}>
+      {picker !== 'acct' && <div class={'keypad ' + keyCol}>
         {(calc ? CALC : SIMPLE).map((k) => {
           const op = k === '+' || k === '-' || k === '*' || k === '/';
           const cls = k === 'equals' ? 'eq' : op ? 'op' : k === 'clear' || k === '(' || k === ')' ? 'fn' : '';
@@ -137,9 +138,9 @@ export function AddSheet({ edit, onClose, onSaved }: { edit?: Entry; onClose: ()
             </button>
           );
         })}
-      </div>
+      </div>}
       <div class="primary-wrap">
-        <button class="primary" disabled={!ready || busy} onClick={() => (transfer ? save() : setStep('cat'))}>{transfer ? 'Save transfer' : 'Choose category'}</button>
+        <button class="primary" disabled={!ready || busy} onClick={() => (transfer ? save() : (setPicker(null), setStep('cat')))}>{transfer ? 'Save transfer' : 'Choose category'}</button>
       </div>
     </Sheet>
   );

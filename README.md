@@ -41,7 +41,8 @@ Requires Node.js (LTS).
 npm install
 npm run dev       # local preview at http://localhost:5173
 npm test          # unit tests (Vitest)
-npm run e2e       # builds, then tests every flow in headless Chrome
+npm run e2e       # builds, then tests every flow in headless Chrome at iPhone SE size,
+                  # including that every button stays reachable (nothing cut off)
 npm run build     # production build in dist/
 ```
 
