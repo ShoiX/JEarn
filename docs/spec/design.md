@@ -8,6 +8,7 @@
 - **Chips/pills** (account, date, account type): capsules, no border; off `#2F3140` / text `#E9E9ED`, on accent `#9184D9` / text `#161826`. Account and date pills in the Add sheet are capsules on `#161826` with a 1pt border.
 - **Prominent buttons** (Save, Choose category, Add, the + tab button): **filled** accent `#9184D9`, text `#161826` semibold, radius 12 (50pt tall), + button is a 44pt circle.
 - **Toggle:** iOS-style switch (51×31), on tint `#9184D9` (a styled checkbox; Safari 17.4+ `switch` attribute where available).
+- **Swipe actions:** row slides left with the finger (follows 1:1, snaps open past ~40pt, otherwise back), revealing an 80pt-wide "Archive" button in iOS orange `#FF9F0A` with white 15pt text, full row height. Snap animation 200ms ease-out.
 - **Sheets:** grabber, radius 12. Add sheet header: "Cancel" (left, accent) and "New Transaction" (centre), segmented control below. Detail sheet closes with "Done". Sheets slide up from the bottom over a dimmed backdrop; tap the backdrop or drag the grabber down to close.
 - **Text fields:** radius 10, no border, fill `#161826`.
 - **Tab bar:** translucent (`backdrop-filter: blur`), 0.5pt top hairline, padded for `env(safe-area-inset-bottom)`; selected tab icon uses the filled variant.
