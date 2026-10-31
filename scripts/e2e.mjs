@@ -131,11 +131,47 @@ const FIND = `((sel, text, nth, within) => {
 })`;
 const find = (sel, text, o = {}) => `${FIND}(${J(sel)}, ${J(text)}, ${o.nth ?? 0}, ${J(o.within)})`;
 const exists = (sel, text, o) => ev(`!!${find(sel, text, o)}`);
+// Layout audit: every enabled control must be reachable by a finger, i.e. not cut off by an ancestor that hides overflow
+// (a finger can't scroll an overflow:hidden box; scrollIntoView can, which is how a clipped button once passed).
+const AUDIT = `(() => {
+  const bad = [];
+  const name = (el) => (el.getAttribute('aria-label') || el.textContent.trim() || el.placeholder || el.tagName).slice(0, 40);
+  for (const el of document.querySelectorAll('button, input, select, textarea, a[href], [role=switch]')) {
+    if (el.disabled || el.type === 'file' || el.hidden) continue;
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height || getComputedStyle(el).visibility === 'hidden') continue;
+    const sb = el.closest('.swipe-body');
+    if (sb && new DOMMatrix(getComputedStyle(sb).transform).m41 !== 0) continue; // row slid open on purpose
+    // Walk up: a scroll container can bring the control into its own box, so from there on track that box instead;
+    // a container that hides overflow (no finger scrolling) must contain what's tracked.
+    let t = r.top, b = r.bottom, l = r.left, rt = r.right;
+    for (let p = el.parentElement; p && p !== document.documentElement; p = p.parentElement) {
+      const s = getComputedStyle(p), q = p.getBoundingClientRect();
+      const ys = /auto|scroll/.test(s.overflowY), xs = /auto|scroll/.test(s.overflowX);
+      const yh = /hidden|clip/.test(s.overflowY), xh = /hidden|clip/.test(s.overflowX);
+      if ((yh && (t < q.top - 1 || b > q.bottom + 1)) || (xh && (l < q.left - 1 || rt > q.right + 1))) { bad.push(name(el)); break; }
+      if (ys) { t = Math.max(q.top, Math.min(t, q.bottom)); b = Math.min(q.bottom, Math.max(b, q.top)); if (r.height <= q.height) { t = q.top; b = q.top + r.height; } }
+      if (xs) { if (r.width <= q.width) { l = q.left; rt = q.left + r.width; } }
+    }
+  }
+  return bad;
+})()`;
+const clipped = new Map(); // control -> where it was first seen clipped
+let audits = 0;
+const audit = async (where) => {
+  audits++;
+  for (const n of await ev(AUDIT)) if (!clipped.has(n)) { clipped.set(n, where); record(`layout: "${n}" reachable (${where})`, false, 'cut off by a container that hides overflow'); }
+};
 const click = async (sel, text, o = {}) => {
+  await audit(`before tapping ${sel}${text === undefined ? '' : ' ' + text}`);
   const r = await ev(`(() => { const el = ${find(sel, text, o)}; if (!el) return { err: 'missing' }; if (el.disabled) return { err: 'disabled' };
-    el.scrollIntoView({ block: 'center' }); const b = el.getBoundingClientRect(); const x = b.x + b.width / 2, y = b.y + b.height / 2;
-    const top = document.elementFromPoint(x, y); return { x, y, ok: top === el || el.contains(top) }; })()`);
+    const hid = []; for (let p = el.parentElement; p; p = p.parentElement) { const s = getComputedStyle(p); const y = /hidden|clip/.test(s.overflowY), x = /hidden|clip/.test(s.overflowX); if (y || x) hid.push([p, y && p.scrollTop, x && p.scrollLeft, y, x]); }
+    el.scrollIntoView({ block: 'center' });
+    const moved = hid.filter(([p, t, l, y, x]) => (y && Math.abs(p.scrollTop - t) > 2) || (x && Math.abs(p.scrollLeft - l) > 2)).map(([p, t, l]) => (p.id || p.className) + ':' + t + '->' + p.scrollTop + '/' + l + '->' + p.scrollLeft + ' sh=' + p.scrollHeight + ' ch=' + p.clientHeight).join(';');
+    const b = el.getBoundingClientRect(); const x = b.x + b.width / 2, y = b.y + b.height / 2;
+    const top = document.elementFromPoint(x, y); return { x, y, moved, ok: top === el || el.contains(top) }; })()`);
   if (r.err) throw new Error(`click ${sel}${text === undefined ? '' : ` "${text}"`}: ${r.err}`);
+  if (r.moved) record(`tap target reachable by finger: ${sel} ${text ?? ''}`, false, 'only reachable by scrolling a container that hides overflow: ' + r.moved);
   if (!r.ok) record(`tap target not obscured: ${sel} ${text ?? ''}`, false, 'another element covers the centre of the control');
   await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: r.x, y: r.y }] });
   await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
@@ -163,8 +199,10 @@ const tab = (name) => click('.tab', name);
 const ACT = (name) => `.swipe-act[aria-label="Archive ${name}"]`;
 const touchDrag = async (x, y, dx, dy, steps = 6) => {
   await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
-  for (let i = 1; i <= steps; i++) await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + (dx * i) / steps, y: y + (dy * i) / steps }] });
+  for (let i = 1; i <= steps; i++) {
+    await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + (dx * i) / steps, y: y + (dy * i) / steps }] });
     await sleep(30); // slow enough that Chrome does not start a fling (a fling swallows the next tap)
+  }
   await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await sleep(350); // snap animation
 };
@@ -414,7 +452,9 @@ flow('Setup: swipe and add-form gestures', async () => {
   check('swipe footnote shown', (await body()).includes('Swipe left on a row to archive it. Archived items can be restored at the bottom.'));
   check('no archive icon buttons', !(await exists('.iconbtn')));
   const archivedBefore = (await dump()).accounts.filter((a) => a.archivedAt).length;
-  check('archive button disabled while closed', await ev(`document.querySelector(${J(ACT('BDO'))}).disabled`));
+  const tappable = (sel) => ev(`(() => { const el = document.querySelector(${J(sel)}); const b = el.getBoundingClientRect(); const t = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2); return t === el || el.contains(t); })()`);
+  await ev(`document.querySelector(${J(ACT('BDO'))}).nextElementSibling.scrollIntoView({ block: 'center' })`);
+  check('archive button covered while closed', !(await tappable(ACT('BDO'))));
   await swipe('BDO', -20);
   eq('short swipe snaps back', await rowX('BDO'), 0);
   eq('short swipe archives nothing', (await dump()).accounts.filter((a) => a.archivedAt).length, archivedBefore);
@@ -422,13 +462,22 @@ flow('Setup: swipe and add-form gestures', async () => {
   eq('vertical drag does not open the row', await rowX('BDO'), 0);
   await swipe('BDO');
   eq('swipe left opens the row', await rowX('BDO'), -80);
-  check('archive button enabled when open', !(await ev(`document.querySelector(${J(ACT('BDO'))}).disabled`)));
+  check('archive button tappable when open', await tappable(ACT('BDO')));
   await click('.section-h', 'Currency');
   eq('tap elsewhere closes the open row', await rowX('BDO'), 0);
   await swipe('BDO');
   await swipe('Visa');
   eq('second row open', await rowX('Visa'), -80);
   eq('opening a second row closes the first', await rowX('BDO'), 0);
+  await click('.section-h', 'Currency');
+  // like iOS: with a row open, a tap on another control only closes the row
+  await swipe('BDO');
+  await click('.typebtn', undefined, { within: ['.srow-wrap', 'Visa'] }); // next row: no scrolling needed
+  eq('tap on another control closes the open row', await rowX('BDO'), 0);
+  check('...without acting on that control', !(await exists('.panel')));
+  // VoiceOver / keyboard: focusing the hidden Archive button opens the row
+  await ev(`document.querySelector(${J(ACT('Visa'))}).focus()`);
+  eq('focusing Archive opens the row', await rowX('Visa'), -80);
   await click('.section-h', 'Currency');
   // category row: tapping an open row's content closes it and does not expand it
   const housingOpen = () => ev(`!!([...document.querySelectorAll('.srow-wrap')].find((w) => w.querySelector('.catbtn')?.textContent.includes('Housing'))).querySelector('.catbody')`);
@@ -457,6 +506,15 @@ flow('Setup: swipe and add-form gestures', async () => {
   await click('.section-h', 'Currency');
   check('tap outside with typed name closes it', !(await form()));
   eq('...and adds nothing', await accounts(), n);
+  await click('.addbtn', 'Add account');
+  await type('input[placeholder="Account name"]', 'Ghost');
+  const pt = await ev(`(() => { const b = [...document.querySelectorAll('.section-h')].find((h) => h.textContent.includes('Expense')).getBoundingClientRect(); return { x: b.x + 40, y: b.y + b.height / 2 }; })()`);
+  await touchDrag(pt.x, pt.y + 120, 0, -150);
+  check('scrolling does not close the add-account form', await form());
+  await click('.catbtn', '~Bills');
+  check('tap on a category closes the form', !(await form()));
+  check('...without expanding the category (tap swallowed)', !(await ev(`!!([...document.querySelectorAll('.srow-wrap')].find((w) => w.querySelector('.catbtn')?.textContent.includes('Bills'))).querySelector('.catbody')`)));
+  eq('...and adds nothing (category tap)', await accounts(), n);
   await click('.addbtn', 'Add account');
   await type('input[placeholder="Account name"]', 'Ghost');
   await key('Escape');
@@ -947,6 +1005,54 @@ flow('Clear site data, rejected imports, round trip', async () => {
   check('imported: voided entry hidden on Home', !(await exists('.txrow', '~Groceries')));
   check('imported: Home lists entries', (await homeRows()).length >= 4);
   await shot('13-after-import');
+});
+
+flow('Layout: worst-case data on a 375×667 screen', async () => {
+  const LONG = 'Metrobank Peso Savings Joint Account';
+  const CAT = 'Household Maintenance and Repairs', SUB = 'Plumbing, Electrical and Aircon Servicing';
+  const NOTE = 'Paid the plumber for the kitchen sink and the aircon cleaning, split with my brother, receipt in drawer';
+  await tab('Setup');
+  await click('.addbtn', 'Add account');
+  await type('input[placeholder="Account name"]', LONG);
+  await type('input[placeholder="Balance"]', '9999999.99');
+  await click('.primary.small', 'Add');
+  await waitFor(`[...document.querySelectorAll('.srow.acct')].some((r) => r.textContent.includes(${J(LONG)}))`, 'long account');
+  await click('.addbtn', 'Add category');
+  await type('input[placeholder="Category name"]', CAT); await key('Enter');
+  await click('.catbtn', '~' + CAT);
+  await click('.addbtn', 'Add subcategory');
+  await type('input[placeholder="Subcategory name"]', SUB); await key('Enter');
+  await waitFor(`[...document.querySelectorAll('.subline')].some((r) => r.textContent.includes(${J(SUB)}))`, 'long subcategory');
+  await audit('Setup with long names'); await shot('16-layout-setup');
+
+  await addTx({ keys: '987654.32', account: LONG, category: SUB, note: NOTE });
+  await addTx({ type: 'transfer', keys: '123456.78', from: LONG, to: 'BDO' });
+  await addTx({ type: 'income', keys: '5000', account: LONG, category: 'Salary', note: NOTE });
+  await tab('Home'); await audit('Home with long names'); await shot('17-layout-home');
+
+  const detail = async (title, label) => {
+    await click('.txrow', '~' + title);
+    await waitFor(`!!document.querySelector('.sheet')`, 'detail sheet'); await sleep(400);
+    await audit(`detail sheet: ${label}`);
+    await shot('18-layout-detail-' + label);
+    check(`detail (${label}): Void button reachable`, (await ev(AUDIT)).every((n) => n !== 'Void transaction'));
+    await click('.textbtn', 'Done'); await waitFor(`!document.querySelector('.sheet')`, 'detail closed'); await settle();
+  };
+  await detail(SUB, 'expense-with-note');
+  await detail('Transfer', 'transfer');
+  await detail('Salary', 'income-with-note');
+
+  await click('.txrow', '~' + SUB);
+  await waitFor(`!!document.querySelector('.sheet')`, 'detail sheet'); await sleep(400);
+  await click('.editbtn', 'Edit'); await sleep(400);
+  await audit('edit sheet'); await shot('19-layout-edit');
+  await click('.textbtn', 'Cancel'); await waitFor(`!document.querySelector('.sheet')`, 'edit closed'); await settle();
+
+  await tab('Budgets'); await audit('Budgets with long names'); await shot('20-layout-budgets');
+  await tab('Reports'); await audit('Reports with long names'); await shot('21-layout-reports');
+  await click('.seg button', 'Last 6 months'); await audit('Reports 6 months'); 
+  await tab('Home');
+  check(`layout: no clipped controls in ${audits} audits`, clipped.size === 0, [...clipped].map(([n, w]) => `${n} @ ${w}`).join(' | '));
 });
 
 flow('Persistence and offline', async () => {

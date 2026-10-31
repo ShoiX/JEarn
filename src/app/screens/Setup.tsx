@@ -62,9 +62,10 @@ function AddAccount({ onDone }: { onDone: () => void }) {
   };
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const away = (e: Event) => { if (!root.current?.contains(e.target as Node)) onDone(); };
-    document.addEventListener('pointerdown', away, true);
-    return () => document.removeEventListener('pointerdown', away, true);
+    // A tap (not a scroll) outside closes the form; the tap itself is swallowed so nothing shifts under the finger.
+    const away = (e: Event) => { if (!root.current?.contains(e.target as Node)) { e.preventDefault(); e.stopPropagation(); onDone(); } };
+    document.addEventListener('click', away, true);
+    return () => document.removeEventListener('click', away, true);
   }, []);
   return (
     <div class="addrow wrap" ref={root} onKeyDown={(e) => { if (e.key === 'Escape') onDone(); }}>

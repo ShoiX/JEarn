@@ -64,11 +64,12 @@ export function SwipeRow({ id, name, openId, setOpenId, onArchive, children }: {
   const [drag, setDrag] = useState<number | null>(null);
   useEffect(() => {
     if (!open) return;
-    const away = (e: Event) => { if (!root.current?.contains(e.target as Node)) setOpenId(null); };
+    // Like iOS: a tap elsewhere only closes the row (the tap is swallowed); scrolling closes it too.
+    const away = (e: Event) => { if (!root.current?.contains(e.target as Node)) { e.preventDefault(); e.stopPropagation(); setOpenId(null); } };
     const scroll = () => setOpenId(null);
-    document.addEventListener('pointerdown', away, true);
+    document.addEventListener('click', away, true);
     document.addEventListener('scroll', scroll, true);
-    return () => { document.removeEventListener('pointerdown', away, true); document.removeEventListener('scroll', scroll, true); };
+    return () => { document.removeEventListener('click', away, true); document.removeEventListener('scroll', scroll, true); };
   }, [open]);
   const end = (e: PointerEvent, cancel: boolean) => {
     const s = g.current;
@@ -81,7 +82,8 @@ export function SwipeRow({ id, name, openId, setOpenId, onArchive, children }: {
   };
   return (
     <div class="swipe" ref={root}>
-      <button class="swipe-act" aria-label={`Archive ${name}`} disabled={!open} tabIndex={open ? 0 : -1} onClick={onArchive}>Archive</button>
+      {/* Covered by the row until it slides open; focusing it (VoiceOver, keyboard) opens the row. */}
+      <button class="swipe-act" aria-label={`Archive ${name}`} onFocus={() => setOpenId(id)} onClick={onArchive}>Archive</button>
       <div class={'swipe-body' + (drag === null ? ' snap' : '')} style={{ transform: `translateX(${drag ?? (open ? -SWIPE_OPEN : 0)}px)` }}
         onPointerDown={(e) => { const s = g.current; s.x = e.clientX; s.y = e.clientY; s.start = open ? -SWIPE_OPEN : 0; s.axis = null; s.moved = false; s.pid = e.pointerId; }}
         onPointerMove={(e) => {

@@ -9,7 +9,7 @@
 - **Prominent buttons** (Save, Choose category, Add, the + tab button): **filled** accent `#9184D9`, text `#161826` semibold, radius 12 (50pt tall), + button is a 44pt circle.
 - **Toggle:** iOS-style switch (51×31), on tint `#9184D9` (a styled checkbox; Safari 17.4+ `switch` attribute where available).
 - **Swipe actions:** row slides left with the finger (follows 1:1, snaps open past ~40pt, otherwise back), revealing an 80pt-wide "Archive" button in iOS orange `#FF9F0A` with white 15pt text, full row height. Snap animation 200ms ease-out.
-- **Sheets:** grabber, radius 12. Add sheet header: "Cancel" (left, accent) and "New Transaction" (centre), segmented control below. Detail sheet closes with "Done". Sheets slide up from the bottom over a dimmed backdrop; tap the backdrop or drag the grabber down to close.
+- **Sheets:** grabber, radius 12. Add sheet header: "Cancel" (left, accent) and "New Transaction" (centre), segmented control below. Detail sheet closes with "Done". Sheets slide up from the bottom over a dimmed backdrop; tap the backdrop or drag the grabber down to close. The Detail sheet fits its content (up to the screen height) and scrolls if taller. In the Add sheet, an open account/date panel shrinks and scrolls so the keypad and Save button always stay on screen.
 - **Text fields:** radius 10, no border, fill `#161826`.
 - **Tab bar:** translucent (`backdrop-filter: blur`), 0.5pt top hairline, padded for `env(safe-area-inset-bottom)`; selected tab icon uses the filled variant.
 - **Month arrows:** 34pt circular buttons, fill `#232532`, accent chevrons.
