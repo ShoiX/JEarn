@@ -1,6 +1,6 @@
 # 002 — Backup to own server, not iCloud sync
 
-**Status:** Accepted (2026-10-27)
+**Status:** Accepted (2026-10-27). Upload method and auth amended by [005](005-backup-server-design.md).
 
 **Context:** The original handoff planned SwiftData + CloudKit sync. CloudKit requires a paid Apple Developer account. The owner has a private cloud server, wants to analyse the data there later (e.g. with a Hermes agent), and may support other users in the future. Only one device edits the data.
 

@@ -31,5 +31,5 @@
 - PWA chrome: `theme-color` and `background-color` `#161826`, `apple-mobile-web-app-status-bar-style` `black-translucent`, `viewport-fit=cover`, no pinch zoom, `user-select: none` outside text fields, `-webkit-tap-highlight-color: transparent`.
 
 ## Icons (Phosphor → SF Symbol look-alike, inline SVG)
-house → house · target → target · chart-bar → chart.bar · gear-six → gearshape · plus → plus · caret-left/right/down/up → chevron.* · trash → trash · x → xmark · backspace → delete.left · wallet → wallet.pass · calendar-blank → calendar · calculator → plus.forwardslash.minus
+house → house · target → target · chart-bar → chart.bar · gear-six → gearshape · plus → plus · caret-left/right/down/up → chevron.* · trash → trash · x → xmark · backspace → delete.left · wallet → wallet.pass · calendar-blank → calendar · calculator → plus.forwardslash.minus · backup status → icloud / checkmark.icloud / arrow.up.icloud / exclamationmark.icloud (dot variant for waiting)
 

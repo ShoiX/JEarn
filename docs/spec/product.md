@@ -16,9 +16,9 @@ The app must stay minimal: target **≤ 200 KB** of app files (gzipped), fully o
 - **System font only** (`-apple-system`, i.e. SF Pro on iPhone). Do not bundle Inter or any web font.
 - **Icons:** a small set of inline SVGs drawn in the SF Symbols style (see [design.md](design.md)). No icon fonts or packs.
 - **Charts:** plain SVG/CSS. No chart libraries.
-- **Storage:** IndexedDB on-device; request persistent storage (`navigator.storage.persist()`). No backend, no login. The only network use is loading/updating the app files.
+- **Storage:** IndexedDB on-device; request persistent storage (`navigator.storage.persist()`). No login. Network use: loading/updating the app files, and the optional server backup once a backup key is set.
 - **Offline:** a hand-written service worker caches the app shell. No push notifications, background sync or location access.
-- **Backup to a private server is planned for a later version** — not built in v1, but v1 must be backup-ready (see [backup.md](backup.md)). v1 itself makes no network calls.
+- **Automatic backup to the owner's server** when a backup key is set ([backup.md](backup.md)). Without a key the app makes no network calls.
 - Expected data size: ~100–200 bytes per transaction (≈1–2 MB after years of daily use).
 
 Sizes given in pt are CSS px (1:1 on iPhone).
@@ -30,6 +30,7 @@ Bottom tab bar, 52pt tall, 5 slots: Home · Budgets · [+] · Reports · Setup. 
 
 ### 1. Home
 - Header: month title ("October 2026", 26pt/500) + prev/next month buttons (36×36, 1pt `#3F424D` border, radius 8). Next disabled (30% opacity) on current month.
+- Backup status icon at the top right of the header, only when a backup key is set (states and taps in [backup.md](backup.md#phone-side)).
 - Summary card (bg `#232532`, radius 14, padding 16): label "Left to spend" / "Over budget" (13pt `#9397AB`); amount 38pt/500 (turns warn colour when over); 6pt progress bar (track `#3F424D`, fill accent or warn); row "Spent $X of $Y" left, "Income $Z" right (13pt `#B2B6CA`). Until any category has a budget for the month, the card instead shows "Spent this month" with the month's spending in the normal text colour, no progress bar, and "No budgets set yet" in place of "Spent $X of $Y".
 - Accounts: horizontal scroll of cards (min-width 112, bg `#232532`, radius 8, padding 10×12): name 12pt muted, balance 16pt/500.
 - Transactions for the month, grouped by date ("Today", "Yesterday", "Mon 6 Oct"). Row ≥52pt: 8pt category colour dot, title (subcategory name) 15pt, meta 12pt muted ("Category · Account · note"), amount right. Income `+$` in `#D2CEFD`; expense `−$` in text colour; transfer title "Transfer", meta "From → To", amount in `#B2B6CA`, grey dot.
@@ -60,6 +61,7 @@ Grouped lists (bg `#232532`, radius 8, rows ≥48pt, 1pt `#292B31` separators):
 - Archived: a collapsed group listing archived accounts and categories, each with "Restore" (undoes a mistaken archive; reference data only).
 - **Starter categories:** on a fresh install (no categories and an empty ledger) the app creates common expense categories with subcategories (Housing, Food, Transport, Bills, Health, Personal, Shopping, Entertainment, Family, Giving, Education, Insurance, Fees, Taxes) and income categories (Salary, Bonus, Side income, Interest, Gifts received, Refunds, Other income), with no budgets. List: `src/core/starter.ts`. No accounts are created.
 - No "Load sample data" and no "Clear transactions": the ledger only ever holds real entries and is never erased in-app.
+- Backup: "Backup key" row (paste, Save, Remove key), restore offer on an empty phone; see [backup.md](backup.md#phone-side).
 - Data: "Export data" (JSON snapshot, format in [backup.md](backup.md); uses the share sheet via `navigator.share` with a file, falling back to a download) / "Import data" (file picker; only when the ledger is empty).
 
 ### 5. Add Transaction sheet (from +)
