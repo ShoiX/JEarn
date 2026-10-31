@@ -254,6 +254,9 @@ const yestThis = YESTERDAY.slice(0, 7) === THIS_MONTH; // when run on the 1st, "
 const KEYMAP = { '*': '×', '/': '÷', '-': '−' };
 const pressKeys = async (s) => { for (const ch of s) await click('.key', KEYMAP[ch] ?? ch); };
 const openAdd = async () => { await click('.plus'); await waitFor(`!!document.querySelector('.sheet')`, 'add sheet'); await sleep(400); };
+async function expandArchived() {
+  if ((await ev(`document.querySelector('.archtoggle')?.getAttribute('aria-expanded')`)) !== 'true') await click('.archtoggle');
+}
 async function openEdit (rowText) {
   await click('.txrow', rowText);
   await waitFor(`!!document.querySelector('.sheet')`, 'detail sheet');
@@ -377,10 +380,15 @@ flow('Setup: accounts', async () => {
   await archive('Wallet');
   await waitFor(`!document.querySelector('.swipe-act[aria-label="Archive Wallet"]')`, 'Wallet archived');
   has('archived section lists Wallet', (await body()).toLowerCase(), 'archived');
+  check('archived group collapsed by default', !(await exists('.srow', 'Wallet')) && (await text('.archtoggle')).includes('1 item'));
+  await expandArchived();
+  eq('archived toggle reports expanded', await ev(`document.querySelector('.archtoggle').getAttribute('aria-expanded')`), 'true');
   check('archived account has Restore', await exists('.srow .link', 'Restore', { within: ['.srow', 'Wallet'] }));
   await tab('Home');
   check('home hides archived account', !Object.keys(await cards()).includes('Wallet'));
   await tab('Setup');
+  check('archived group collapses again after leaving Setup', !(await exists('.srow .link', 'Restore')));
+  await expandArchived();
   await click('.link', 'Restore', { within: ['.srow', 'Wallet'] });
   await waitFor(`!!document.querySelector('.swipe-act[aria-label="Archive Wallet"]')`, 'Wallet restored');
   has('restored account back in list with type kept', await row('Wallet'), 'Cash');
@@ -417,6 +425,7 @@ flow('Setup: categories and rollover', async () => {
   check('subcategory added', (await texts('.subline')).includes('Vet'));
   await archive('Vet');
   await waitFor(`!document.querySelector('.swipe-act[aria-label="Archive Vet"]')`, 'Vet archived');
+  await expandArchived();
   has('archived sub listed as Pets › Vet', await body(), 'Pets › Vet');
   await click('.link', 'Restore', { within: ['.srow', 'Pets › Vet'] });
   await waitFor(`!!document.querySelector('.swipe-act[aria-label="Archive Vet"]')`, 'Vet restored');
@@ -428,6 +437,7 @@ flow('Setup: categories and rollover', async () => {
   await archive('Pets');
   await waitFor(`![...document.querySelectorAll('.catbtn')].some((b) => b.textContent.includes('Pets'))`, 'Pets archived');
   check('category archived (hidden from list)', !(await listed('Pets')));
+  await expandArchived();
   await click('.link', 'Restore', { within: ['.srow', 'Pets'] });
   await waitFor(`[...document.querySelectorAll('.catbtn')].some((b) => b.textContent.includes('Pets'))`, 'Pets restored');
   check('category restored', await listed('Pets'));
@@ -1022,7 +1032,7 @@ flow('Clear site data, rejected imports, round trip', async () => {
   check('imported: reversal present', d.entries.some((e) => e.kind === 'reversal'));
   eq('imported db == pre-export db (entries)', canon(d.entries), canon(exportedDump.entries));
   check('Import hidden once ledger has entries', !(await exists('.addbtn', 'Import data')));
-  const arch = await body();
+  await expandArchived(); const arch = await body();
   check('archived group restored (account, income cat, sub)', ['Old', 'Freelance', 'Pets › Vet'].every((n) => arch.includes(n)));
   check('currency locked after import', await ev(`document.querySelector('select[aria-label=Currency]').disabled`));
   await tab('Home');
