@@ -20,6 +20,7 @@ The app must stay minimal: target **≤ 200 KB** of app files (gzipped), fully o
 - **Errors:** if an unexpected error leaves the app not showing (no tab bar), it shows the error text instead and "Your data is safe" (no blank screen), so the owner can report it.
 - **Stuck start:** if the app is still not showing 5 s after launch (and no error is shown), a script in the page names the step it is stuck on ("loading app code", "opening the database", "loading your data") and offers **Reset app files**: removes the service worker and cached app files (never the data) and reloads.
 - **Offline:** a hand-written service worker caches the app shell. No push notifications, background sync or location access.
+- **Updates:** a new version downloads in the background and takes over on the next launch. It always fetches its files fresh from the server (never the browser cache), so a quick redeploy cannot leave the app pointing at a deleted script. `scripts/e2e-update.mjs` tests this.
 - **Backup to a private server is planned for a later version** — not built in v1, but v1 must be backup-ready (see [backup.md](backup.md)). v1 itself makes no network calls.
 - Expected data size: ~100–200 bytes per transaction (≈1–2 MB after years of daily use).
 
