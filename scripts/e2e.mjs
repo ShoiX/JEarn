@@ -1139,6 +1139,13 @@ flow('Persistence and offline', async () => {
   await send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
 });
 
+flow('Crash shows the error, not a blank screen', async () => {
+  await ev(`setTimeout(() => { throw new Error('boom test'); }); 1`);
+  await sleep(200);
+  has('error text replaces the app', await text('.fatal'), 'boom test');
+  has('error text says data is safe', await text('.fatal'), 'Your data is safe');
+});
+
 // ---------- run ----------
 process.on('unhandledRejection', (e) => { record('unhandled rejection in e2e script', false, String(e)); });
 for (const [name, fn] of flows) {
@@ -1148,7 +1155,7 @@ for (const [name, fn] of flows) {
     record(`flow "${name}" aborted`, false, e.stack?.split('\n').slice(0, 2).join(' ') ?? String(e));
     await shot('abort-' + name.replace(/\W+/g, '-')).catch(() => {});
   }
-  const fresh = errors.slice(nErr);
+  const fresh = errors.slice(nErr).filter((e) => !e.includes('boom test')); // the crash flow throws on purpose
   check(`${name}: no console errors / exceptions`, fresh.length === 0, fresh.join(' | '));
 }
 
