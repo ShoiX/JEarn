@@ -40,7 +40,13 @@ export function Home({ month, setMonth, openTx }: { month: YearMonth; setMonth: 
         </div>
       </div>
 
-      <SectionHeader right={shown.length > 0 && <>Assets {formatMoney(c, totals.assets)}{totals.hasLiability && <> · Owed {formatMoney(c, totals.owed)}</>}</>}>Accounts</SectionHeader>
+      <SectionHeader>Accounts</SectionHeader>
+      {shown.length > 0 && (
+        <div class="row between sub13 acct-totals">
+          <span>Assets {formatMoney(c, totals.assets)}</span>
+          {totals.hasLiability && <span>Owed {formatMoney(c, totals.owed)}</span>}
+        </div>
+      )}
       <div class="strip">
         {shown.map((a) => (
           <button class={'acard' + (sel ? (sel === a ? ' sel' : ' dim') : '')} key={a.id} aria-pressed={sel === a} onClick={() => setAcct(sel === a ? null : a.id)}>
