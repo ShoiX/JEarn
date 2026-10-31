@@ -63,6 +63,7 @@ Grouped lists (bg `#232532`, radius 8, rows ≥48pt, 1pt `#292B31` separators):
 - **Starter categories:** on a fresh install (no categories and an empty ledger) the app creates common expense categories with subcategories (Housing, Food, Transport, Bills, Health, Personal, Shopping, Entertainment, Family, Giving, Education, Insurance, Fees, Taxes) and income categories (Salary, Bonus, Side income, Interest, Gifts received, Refunds, Other income), with no budgets. List: `src/core/starter.ts`. No accounts are created.
 - No "Load sample data" and no "Clear transactions": the ledger only ever holds real entries and is never erased in-app.
 - Data: "Export data" (JSON snapshot, format in [backup.md](backup.md); uses the share sheet via `navigator.share` with a file, falling back to a download) / "Import data" (file picker; only when the ledger is empty).
+  - Footnote under Data: "Opened in X ms · page Y · data Z" (page = time until the app script starts, data = opening the database and loading). For checking cold-start speed on the phone.
 
 ### 5. Add Transaction sheet (from +)
 Sheet from top 28pt, bg `#232532`, top radius 14, slides up 260ms `cubic-bezier(.2,.8,.2,1)`; backdrop black 55%, tap to dismiss.
@@ -72,7 +73,7 @@ Sheet from top 28pt, bg `#232532`, top radius 14, slides up 260ms `cubic-bezier(
 - Amount display, right-aligned: optional expression line (14pt muted, e.g. "(12+3)×2") above the value (40pt/500; placeholder colour `#595D6C` when empty).
 - One row of compact pills: [wallet Account ⌄] [calendar Today ⌄] … [calculator toggle]. Pills 34pt, radius 8, 1pt `#3F424D` border (accent when open).
   - Account pill opens an inline panel (bg `#161826`, radius 8) with account chips; closes on pick. In Transfer mode the pill reads "From → To", the panel shows From and To rows, closes after picking To; border turns warn if From = To.
-  - Date pill opens a panel: Today, Yesterday, and a native `<input type="date">` (max = today). Closes on pick.
+  - Date pill opens a panel: Today, Yesterday, and a native `<input type="date">` (max = today). Today/Yesterday close the panel on pick. The date input applies each change and the panel closes when the picker is dismissed (blur), because iOS fires change while scrolling the wheel and when first opened.
   - Calculator toggle: off = 3-column keypad (1–9, ., 0, ⌫; keys 54pt). On = 4-column keypad (C ( ) ÷ / 7 8 9 × / 4 5 6 − / 1 2 3 + / . 0 ⌫ =; keys 46pt; operator keys bg `#2B2741` text `#D2CEFD`; = bg `#423A6A`). Turning it off evaluates any expression into a plain amount.
 - Primary button (full width, 48pt, outline accent): "Choose category" — or "Save transfer" in Transfer mode. Disabled (40%) until amount > 0 (and From ≠ To).
 
