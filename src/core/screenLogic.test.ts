@@ -79,6 +79,20 @@ describe('home list', () => {
     expect(sec[0]?.rows.map((r) => r.id)).toEqual([c.id, b.id]); // seq desc within a day
     expect(sec.map((x) => x.rows.length)).toEqual([2, 1, 1]);
   });
+  it('filters by account: debit or credit, transfers under both, voided hidden', () => {
+    const s = shop();
+    const cash = newAccount('Cash');
+    const ex = s.post('expense', day(2026, 10, 27), s.latte.id, s.bank.id);
+    const inc = s.post('income', day(2026, 10, 27), s.bank.id, s.salary.id);
+    const other = s.post('expense', day(2026, 10, 26), s.fun.id, cash.id);
+    const tr = s.post('transfer', day(2026, 10, 25), cash.id, s.bank.id);
+    const gone = s.post('expense', day(2026, 10, 24), s.fun.id, s.bank.id);
+    s.l.void(gone.id, now);
+    const ids = (a: string) => homeSections(s.l, ym(2026, 10), s.dir, day(2026, 10, 27), AUD, a).flatMap((x) => x.rows.map((r) => r.id));
+    expect(ids(s.bank.id)).toEqual([inc.id, ex.id, tr.id]);
+    expect(ids(cash.id)).toEqual([other.id, tr.id]);
+    expect(ids('none')).toEqual([]);
+  });
   it('lastNavMonth: current month, or the latest month with an entry if later', () => {
     const l = new Ledger([], uid);
     expect(lastNavMonth(l, ym(2026, 10))).toBe(ym(2026, 10));

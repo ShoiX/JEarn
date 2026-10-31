@@ -1124,6 +1124,75 @@ flow('Future-dated entries', async () => {
   noAlerts('future-dated entries');
 });
 
+flow('Home: filter by account', async () => {
+  await tab('Home');
+  while ((await text('.large-title h1')) !== monthTitle(THIS_MONTH)) await click('.monthnav [aria-label="Previous month"]');
+  await tab('Setup');
+  await click('.addbtn', 'Add account');
+  await type('input[placeholder="Account name"]', 'Spare');
+  await click('.primary.small', 'Add');
+  await waitFor(`[...document.querySelectorAll('.srow.acct')].some((r) => r.textContent.includes('Spare'))`, 'account Spare');
+  await tab('Home');
+  await addTx({ type: 'transfer', keys: '1', from: 'BDO', to: 'Wallet' });
+  await tab('Home');
+  while ((await text('.large-title h1')) !== monthTitle(THIS_MONTH)) await click('.monthnav [aria-label="Previous month"]');
+  const full = await homeRows(), big = await text('.summary .big');
+  const card = (name) => click('.acard', '~' + name);
+  const pressed = (name) => ev(`${find('.acard', '~' + name)}.getAttribute('aria-pressed')`);
+  const mentions = (r, name) => r.meta.includes(name);
+  check('filter: unfiltered list has several rows', full.length > 3);
+  eq('filter: no chip at first', await exists('.fchip'), false);
+  await card('BDO');
+  const bdo = await homeRows();
+  check('filter BDO: rows shown, fewer than all', bdo.length > 0 && bdo.length < full.length);
+  check('filter BDO: every row mentions BDO', bdo.every((r) => mentions(r, 'BDO')), JSON.stringify(bdo.map((r) => r.meta)));
+  check('filter BDO: transfer listed', bdo.some((r) => r.title === 'Transfer' && r.meta === 'BDO → Wallet'));
+  eq('filter BDO: aria-pressed true', await pressed('BDO'), 'true');
+  eq('filter BDO: others not pressed', await pressed('Wallet'), 'false');
+  eq('filter BDO: chip text', await text('.fchip .chip'), 'BDO ×');
+  const sty = (name) => ev(`(() => { const c = getComputedStyle(${find('.acard', '~' + name)}); return [c.borderTopColor, c.opacity]; })()`);
+  const [selS, othS] = [await sty('BDO'), await sty('Wallet')];
+  check('filter BDO: selected card full opacity, others dimmed to 50%', selS[1] === '1' && othS[1] === '0.5', show([selS, othS]));
+  check('filter BDO: selected card has a different (accent) border colour', selS[0] !== othS[0], show([selS, othS]));
+  eq('filter BDO: summary unchanged', await text('.summary .big'), big);
+  await shot('home-filter-bdo');
+  await card('Wallet');
+  const wal = await homeRows();
+  check('filter switch: every row mentions Wallet', wal.length > 0 && wal.every((r) => mentions(r, 'Wallet')));
+  check('filter: transfer also under Wallet', wal.some((r) => r.meta === 'BDO → Wallet'));
+  eq('filter switch: chip text', await text('.fchip .chip'), 'Wallet ×');
+  eq('filter switch: BDO no longer pressed', await pressed('BDO'), 'false');
+  await click('.monthnav [aria-label="Previous month"]'); await settle();
+  eq('filter survives month change: chip', await text('.fchip .chip'), 'Wallet ×');
+  eq('filter survives month change: summary-card unaffected, card pressed', await pressed('Wallet'), 'true');
+  check('filter survives month change: rows only Wallet', (await homeRows()).every((r) => mentions(r, 'Wallet')));
+  await click('.monthnav [aria-label="Next month"]'); await settle();
+  await click('.fchip .chip');
+  eq('chip clears: all rows back', (await homeRows()).length, full.length);
+  eq('chip clears: no chip', await exists('.fchip'), false);
+  eq('chip clears: nothing pressed', await pressed('BDO'), 'false');
+  await card('BDO'); await card('BDO');
+  eq('tap selected card clears: all rows back', (await homeRows()).length, full.length);
+  eq('tap selected card clears: no chip', await exists('.fchip'), false);
+  await card('Spare');
+  eq('empty account: message', await text('.empty'), 'No Spare transactions this month.');
+  eq('empty account: chip', await text('.fchip .chip'), 'Spare ×');
+  await tab('Budgets'); await tab('Home');
+  eq('leaving Home resets: no chip', await exists('.fchip'), false);
+  eq('leaving Home resets: all rows', (await homeRows()).length, full.length);
+  noAlerts('filter by account');
+});
+
+flow('Page itself never scrolls (double tap cannot push the tab bar off)', async () => {
+  await tab('Home');
+  eq('html/body overflow hidden', await ev(`[getComputedStyle(document.documentElement).overflow, getComputedStyle(document.body).overflow].join()`), 'hidden,hidden');
+  eq('double-tap zoom off (touch-action)', await ev(`getComputedStyle(document.body).touchAction`), 'manipulation');
+  await ev(`window.scrollTo(0, 500); document.scrollingElement.scrollTop = 500; 1`);
+  eq('page scroll stays at 0', await ev(`document.scrollingElement.scrollTop`), 0);
+  const tb = await ev(`JSON.stringify(document.querySelector('.tabbar').getBoundingClientRect().bottom)`);
+  check('tab bar sits at the bottom of the screen (±2px)', Math.abs(+tb - await ev(`innerHeight`)) <= 2, String(tb));
+});
+
 flow('Persistence and offline', async () => {
   const before = await dump();
   const balances = await cards();
