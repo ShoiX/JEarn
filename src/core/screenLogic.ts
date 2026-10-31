@@ -82,9 +82,9 @@ function row(e: Entry, dir: Directory, c: Currency): HomeRow {
   }
 }
 
-/** The month's visible entries grouped by day, newest first (date desc, then seq desc). */
-export function homeSections(l: Ledger, month: YearMonth, dir: Directory, todayDay: Day, c: Currency): DaySection[] {
-  const list = l.visibleEntries.filter((e) => monthOf(e.date) === month)
+/** The month's visible entries (optionally only those touching `accountId`) grouped by day, newest first (date desc, then seq desc). */
+export function homeSections(l: Ledger, month: YearMonth, dir: Directory, todayDay: Day, c: Currency, accountId?: string): DaySection[] {
+  const list = l.visibleEntries.filter((e) => monthOf(e.date) === month && (!accountId || e.debitId === accountId || e.creditId === accountId))
     .sort((a, b) => (a.date !== b.date ? (a.date < b.date ? 1 : -1) : b.seq - a.seq));
   const out: DaySection[] = [];
   for (const e of list) {

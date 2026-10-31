@@ -1,3 +1,4 @@
+import { useState } from 'preact/hooks';
 import {
   accountClass, active, barPercent, categoriesInView, formatMoney, hasBudgets, homeSections, income, leftToSpend, monthLabel, nextMonth,
   lastNavMonth, previousMonth, available, totalSpent, type YearMonth,
@@ -15,7 +16,10 @@ export function Home({ month, setMonth, openTx }: { month: YearMonth; setMonth: 
   const total = cats.reduce((s, x) => s + available(ledger, x, month), 0);
   const budgeted = hasBudgets(cats, month);
   const over = budgeted && left < 0;
-  const sections = homeSections(ledger, month, dir, today, c);
+  const [acct, setAcct] = useState<string | null>(null);
+  const shown = active(accounts);
+  const sel = shown.find((a) => a.id === acct);
+  const sections = homeSections(ledger, month, dir, today, c, sel?.id);
   const byId = new Map(ledger.entries.map((e) => [e.id, e]));
   const thisMonth = today.slice(0, 7);
 
@@ -37,17 +41,18 @@ export function Home({ month, setMonth, openTx }: { month: YearMonth; setMonth: 
 
       <SectionHeader>Accounts</SectionHeader>
       <div class="strip">
-        {active(accounts).map((a) => (
-          <div class="acard" key={a.id}>
+        {shown.map((a) => (
+          <button class={'acard' + (sel ? (sel === a ? ' sel' : ' dim') : '')} key={a.id} aria-pressed={sel === a} onClick={() => setAcct(sel === a ? null : a.id)}>
             <div class="aname"><Icon name={accountIcon(a.type)} size={14} />{a.name}</div>
             <div class="abal">{formatMoney(c, ledger.balance(a.id, accountClass(a.type)))}</div>
-          </div>
+          </button>
         ))}
-        {active(accounts).length === 0 && <div class="muted14 pad-h">Add an account in Setup.</div>}
+        {shown.length === 0 && <div class="muted14 pad-h">Add an account in Setup.</div>}
       </div>
 
       <SectionHeader>Transactions</SectionHeader>
-      {sections.length === 0 && <div class="empty">No transactions this month. Tap + to add one.</div>}
+      {sel && <div class="chips fchip"><button class="chip" onClick={() => setAcct(null)}>{sel.name} ×</button></div>}
+      {sections.length === 0 && <div class="empty">{sel ? `No ${sel.name} transactions this month.` : 'No transactions this month. Tap + to add one.'}</div>}
       {sections.map((s) => (
         <div key={s.date}>
           <div class="section-h day">{s.label}</div>
