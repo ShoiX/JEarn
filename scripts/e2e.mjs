@@ -523,6 +523,17 @@ flow('Setup: swipe and add-form gestures', async () => {
   noAlerts('swipe gestures');
 });
 
+flow('Switching tabs after scrolling', async () => {
+  await tab('Setup');
+  await ev(`window.__oldScroll = document.querySelector('.scroll')`);
+  for (let k = 0; k < 3; k++) await touchDrag(200, 550, 0, -400, 8);
+  check('Setup scrolled down', (await ev(`document.querySelector('.scroll').scrollTop`)) > 300);
+  await tab('Home');
+  check('new tab gets a fresh scroll box (iOS ignores scrollTo while coasting)', await ev(`document.querySelector('.scroll') !== window.__oldScroll`));
+  eq('Home starts at the top', await ev(`document.querySelector('.scroll').scrollTop`), 0);
+  check('Home title on screen', await ev(`(() => { const b = document.querySelector('.large-title h1').getBoundingClientRect(); return b.top >= 0 && b.bottom <= innerHeight; })()`));
+});
+
 flow('Add transactions', async () => {
   await tab('Home');
   // sheet basics

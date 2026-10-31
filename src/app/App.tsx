@@ -24,7 +24,6 @@ export function App() {
   const [month, setMonth] = useState<YearMonth>(() => monthOf(todayOf(new Date())));
   const [sheet, setSheet] = useState<Sheet>(null);
   const latest = useRef<Data | null>(null);
-  const scroller = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     openDb().then(async (db) => {
@@ -58,7 +57,7 @@ export function App() {
   if (error) return <div class="boot">Could not open the database: {error}</div>;
   if (!ctx) return <div class="boot" />;
 
-  const goTab = (t: Tab) => { setTab(t); scroller.current?.scrollTo(0, 0); };
+  const goTab = (t: Tab) => setTab(t);
   const saved = (e: Entry | null) => { setSheet(null); if (e) setMonth(monthOf(e.date)); if (tab === 'setup') setTab('home'); };
   const close = () => setSheet(null);
   const tabButton = (t: Tab) => (
@@ -69,7 +68,9 @@ export function App() {
 
   return (
     <AppCtx.Provider value={ctx}>
-      <div class="scroll" ref={scroller}>
+      {/* A fresh scroll box per tab starts at the top. iOS ignores scrollTo() while a scroll is still coasting,
+          which left a shorter tab showing the empty space below its content. */}
+      <div class="scroll" key={tab}>
         {tab === 'home' && <Home month={month} setMonth={setMonth} openTx={(id) => setSheet({ kind: 'tx', id })} />}
         {tab === 'budgets' && <Budgets month={month} setMonth={setMonth} />}
         {tab === 'reports' && <Reports month={month} setMonth={setMonth} />}
