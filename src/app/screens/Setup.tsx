@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import {
-  ACCOUNT_TYPES, CURRENCIES, SnapshotError, accountClass, active, canChangeCurrency, canImport, carryover,
+  ACCOUNT_TYPES, CURRENCIES, bootLine, SnapshotError, accountClass, active, canChangeCurrency, canImport, carryover,
   evaluate, formatMoney, importSnapshot, monthOf, openingEntry, plainAmount, rolloverNote, type AccountType,
 } from '../../core';
+import { boot } from '../boot';
 import { useApp } from '../ctx';
 import { accountIcon, Icon } from '../icons';
 import { focusOnce, SectionHeader, SwipeRow, Switch } from '../ui';
@@ -247,6 +248,7 @@ export function Setup() {
         <button class="addbtn" onClick={() => go(exportData())}>Export data</button>
         {canImport(ledger) && <button class="addbtn" onClick={() => file.current?.click()}>Import data</button>}
       </div>
+      {boot.data > 0 && <div class="footnote pad-h">{bootLine(boot)}</div>}
       <input ref={file} type="file" accept="application/json,.json" hidden
         onChange={(e) => { const f = e.currentTarget.files?.[0]; e.currentTarget.value = ''; if (f) void importFile(f); }} />
       <div class="spacer" />

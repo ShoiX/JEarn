@@ -191,6 +191,8 @@ const key = async (k) => {
 };
 const setNative = (sel, value, event) => ev(`(() => { const el = document.querySelector(${J(sel)}); const d = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value');
   d.set.call(el, ${J(value)}); el.dispatchEvent(new Event(${J(event)}, { bubbles: true })); })()`);
+// iOS closes the date picker with Done, which blurs the input.
+const blurDate = async () => { await ev(`document.querySelector('.dateinput').dispatchEvent(new FocusEvent('blur'))`); await settle(); };
 const texts = (sel) => ev(`[...document.querySelectorAll(${J(sel)})].map((e) => e.textContent.trim())`);
 const text = (sel) => ev(`document.querySelector(${J(sel)})?.textContent.trim() ?? null`);
 const body = () => ev('document.body.innerText');
@@ -262,7 +264,7 @@ async function addTx({ type: kind = 'expense', keys, calc = false, calcOff = fal
   if (from) { await click('.pill', undefined, { nth: 0 }); await click('.inpanel .chips .chip', from, { nth: 0 }); }
   if (to) { if (!(await exists('.inpanel'))) await click('.pill', undefined, { nth: 0 }); await click('.inpanel .chips .chip', to, { nth: 1 }); }
   if (date) { await click('.pill', undefined, { nth: 1 }); await click('.inpanel .chip', date); }
-  if (customDate) { await click('.pill', undefined, { nth: 1 }); await setNative('.dateinput', customDate, 'change'); await settle(); }
+  if (customDate) { await click('.pill', undefined, { nth: 1 }); await setNative('.dateinput', customDate, 'change'); await blurDate(); }
   if (kind === 'transfer') { await click('.primary', 'Save transfer'); }
   else {
     await click('.primary', 'Choose category');
@@ -547,6 +549,12 @@ flow('Add transactions', async () => {
   eq('date input max = today', await ev(`document.querySelector('.dateinput').max`), TODAY);
   await setNative('.dateinput', FUTURE, 'change'); await settle();
   has('future date is not accepted (clamped to today)', await text('.pill:nth-of-type(2)'), 'Today');
+  check('panel stays open after a future change', await exists('.dateinput'));
+  await setNative('.dateinput', PREV15, 'change'); await settle();
+  check('date change keeps the panel open', await exists('.dateinput'));
+  check('pill shows the picked date at once', !(await text('.pill:nth-of-type(2)')).includes('Today'));
+  await blurDate();
+  check('blur (picker dismissed) closes the panel', !(await exists('.dateinput')));
   await shot('04-add-sheet');
   await click('.textbtn', 'Cancel');
   check('Cancel closes the sheet', !(await exists('.sheet')));
