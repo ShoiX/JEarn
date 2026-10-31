@@ -159,6 +159,23 @@ const texts = (sel) => ev(`[...document.querySelectorAll(${J(sel)})].map((e) => 
 const text = (sel) => ev(`document.querySelector(${J(sel)})?.textContent.trim() ?? null`);
 const body = () => ev('document.body.innerText');
 const tab = (name) => click('.tab', name);
+// Real touch drag via CDP on a swipe row (found by its "Archive <name>" button): touchStart near the right, touchMove steps, touchEnd.
+const ACT = (name) => `.swipe-act[aria-label="Archive ${name}"]`;
+const touchDrag = async (x, y, dx, dy, steps = 6) => {
+  await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+  for (let i = 1; i <= steps; i++) await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + (dx * i) / steps, y: y + (dy * i) / steps }] });
+    await sleep(30); // slow enough that Chrome does not start a fling (a fling swallows the next tap)
+  await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await sleep(350); // snap animation
+};
+const swipe = async (name, dx = -100, dy = 0) => {
+  const r = await ev(`(() => { const el = document.querySelector(${J(ACT(name))}).nextElementSibling; el.scrollIntoView({ block: 'center' });
+    const b = el.getBoundingClientRect(); return { x: b.right - 25, y: b.y + b.height / 2 }; })()`);
+  await touchDrag(r.x, r.y, dx, dy);
+};
+const rowX = async (name) => { await sleep(250); return ev(`new DOMMatrix(getComputedStyle(document.querySelector(${J(ACT(name))}).nextElementSibling).transform).m41`); };
+const archive = async (name) => { await swipe(name); await sleep(150); await click(ACT(name)); };
+
 const takeAlerts = () => alerts.splice(0);
 
 const homeRows = () => ev(`[...document.querySelectorAll('.section-h.day')].flatMap((h) => [...h.nextElementSibling.querySelectorAll('.txrow')].map((r) => ({
@@ -304,18 +321,18 @@ flow('Setup: accounts', async () => {
   check('opening entries are dated today', d.entries.every((e) => e.date === TODAY));
 
   // archive / restore
-  await click('.iconbtn[aria-label="Archive Wallet"]');
-  await waitFor(`!document.querySelector('.iconbtn[aria-label="Archive Wallet"]')`, 'Wallet archived');
+  await archive('Wallet');
+  await waitFor(`!document.querySelector('.swipe-act[aria-label="Archive Wallet"]')`, 'Wallet archived');
   has('archived section lists Wallet', (await body()).toLowerCase(), 'archived');
   check('archived account has Restore', await exists('.srow .link', 'Restore', { within: ['.srow', 'Wallet'] }));
   await tab('Home');
   check('home hides archived account', !Object.keys(await cards()).includes('Wallet'));
   await tab('Setup');
   await click('.link', 'Restore', { within: ['.srow', 'Wallet'] });
-  await waitFor(`!!document.querySelector('.iconbtn[aria-label="Archive Wallet"]')`, 'Wallet restored');
+  await waitFor(`!!document.querySelector('.swipe-act[aria-label="Archive Wallet"]')`, 'Wallet restored');
   has('restored account back in list with type kept', await row('Wallet'), 'Cash');
-  await click('.iconbtn[aria-label="Archive Old"]'); // stays archived for the export test
-  await waitFor(`!document.querySelector('.iconbtn[aria-label="Archive Old"]')`, 'Old archived');
+  await archive('Old'); // stays archived for the export test
+  await waitFor(`!document.querySelector('.swipe-act[aria-label="Archive Old"]')`, 'Old archived');
   check('db: Old has archivedAt', !!(await dump()).accounts.find((a) => a.name === 'Old').archivedAt);
 
   await tab('Home');
@@ -344,17 +361,17 @@ flow('Setup: categories and rollover', async () => {
   await click('.primary.small', 'Add');
   await waitFor(`[...document.querySelectorAll('.subline')].some((b) => b.textContent.includes('Vet'))`, 'Vet sub');
   check('subcategory added', (await texts('.subline')).includes('Vet'));
-  await click('.iconbtn[aria-label="Archive Vet"]');
-  await waitFor(`!document.querySelector('.iconbtn[aria-label="Archive Vet"]')`, 'Vet archived');
+  await archive('Vet');
+  await waitFor(`!document.querySelector('.swipe-act[aria-label="Archive Vet"]')`, 'Vet archived');
   has('archived sub listed as Pets › Vet', await body(), 'Pets › Vet');
   await click('.link', 'Restore', { within: ['.srow', 'Pets › Vet'] });
-  await waitFor(`!!document.querySelector('.iconbtn[aria-label="Archive Vet"]')`, 'Vet restored');
+  await waitFor(`!!document.querySelector('.swipe-act[aria-label="Archive Vet"]')`, 'Vet restored');
   check('subcategory restored', (await texts('.subline')).includes('Vet'));
-  await click('.iconbtn[aria-label="Archive Vet"]'); // left archived for the export test
-  await waitFor(`!document.querySelector('.iconbtn[aria-label="Archive Vet"]')`, 'Vet archived again');
+  await archive('Vet'); // left archived for the export test
+  await waitFor(`!document.querySelector('.swipe-act[aria-label="Archive Vet"]')`, 'Vet archived again');
   await click('.catbtn', '~Pets'); // collapse
 
-  await click('.iconbtn[aria-label="Archive Pets"]');
+  await archive('Pets');
   await waitFor(`![...document.querySelectorAll('.catbtn')].some((b) => b.textContent.includes('Pets'))`, 'Pets archived');
   check('category archived (hidden from list)', !(await listed('Pets')));
   await click('.link', 'Restore', { within: ['.srow', 'Pets'] });
@@ -364,9 +381,9 @@ flow('Setup: categories and rollover', async () => {
   await click('.addbtn', 'Add income category');
   await type('input[placeholder="Income category"]', 'Freelance');
   await click('.primary.small', 'Add');
-  await waitFor(`!!document.querySelector('.iconbtn[aria-label="Archive Freelance"]')`, 'Freelance income');
-  await click('.iconbtn[aria-label="Archive Freelance"]'); // stays archived
-  await waitFor(`!document.querySelector('.iconbtn[aria-label="Archive Freelance"]')`, 'Freelance archived');
+  await waitFor(`!!document.querySelector('.swipe-act[aria-label="Archive Freelance"]')`, 'Freelance income');
+  await archive('Freelance'); // stays archived
+  await waitFor(`!document.querySelector('.swipe-act[aria-label="Archive Freelance"]')`, 'Freelance archived');
   check('db: Freelance archived', !!(await dump()).incomeCats.find((c) => c.name === 'Freelance').archivedAt);
 
   // rollover
@@ -390,6 +407,62 @@ flow('Setup: categories and rollover', async () => {
   eq('rollover on again (rollStart previous month for the budget test)', (await dump()).expenseCats.find((c) => c.name === 'Food').rollStart, PREV_MONTH);
   await shot('03-setup-rollover');
   noAlerts('categories');
+});
+
+flow('Setup: swipe and add-form gestures', async () => {
+  await tab('Setup');
+  check('swipe footnote shown', (await body()).includes('Swipe left on a row to archive it. Archived items can be restored at the bottom.'));
+  check('no archive icon buttons', !(await exists('.iconbtn')));
+  const archivedBefore = (await dump()).accounts.filter((a) => a.archivedAt).length;
+  check('archive button disabled while closed', await ev(`document.querySelector(${J(ACT('BDO'))}).disabled`));
+  await swipe('BDO', -20);
+  eq('short swipe snaps back', await rowX('BDO'), 0);
+  eq('short swipe archives nothing', (await dump()).accounts.filter((a) => a.archivedAt).length, archivedBefore);
+  await swipe('BDO', 0, -60);
+  eq('vertical drag does not open the row', await rowX('BDO'), 0);
+  await swipe('BDO');
+  eq('swipe left opens the row', await rowX('BDO'), -80);
+  check('archive button enabled when open', !(await ev(`document.querySelector(${J(ACT('BDO'))}).disabled`)));
+  await click('.section-h', 'Currency');
+  eq('tap elsewhere closes the open row', await rowX('BDO'), 0);
+  await swipe('BDO');
+  await swipe('Visa');
+  eq('second row open', await rowX('Visa'), -80);
+  eq('opening a second row closes the first', await rowX('BDO'), 0);
+  await click('.section-h', 'Currency');
+  // category row: tapping an open row's content closes it and does not expand it
+  const housingOpen = () => ev(`!!([...document.querySelectorAll('.srow-wrap')].find((w) => w.querySelector('.catbtn')?.textContent.includes('Housing'))).querySelector('.catbody')`);
+  await swipe('Housing');
+  eq('Housing row open', await rowX('Housing'), -80);
+  await click('.catbtn', '~Housing');
+  eq('tap on open row content closes it', await rowX('Housing'), 0);
+  check('...and does not expand the category', !(await housingOpen()));
+  await click('.catbtn', '~Housing'); // expand: subcategories are swipeable too
+  const sub = await ev(`[...document.querySelectorAll('.srow-wrap')].find((w) => w.querySelector('.catbtn')?.textContent.includes('Housing')).querySelector('.subline .grow').textContent`);
+  await swipe(sub);
+  eq('subcategory row opens by swipe', await rowX(sub), -80);
+  await click('.section-h', 'Currency');
+  await click('.catbtn', '~Housing'); // collapse
+
+  // add-account form: tap outside closes it (typed input discarded); Escape closes it
+  const accounts = async () => (await dump()).accounts.length;
+  const n = await accounts();
+  const form = () => exists('input[placeholder="Account name"]');
+  await click('.addbtn', 'Add account');
+  check('add form open', await form());
+  await click('.section-h', 'Currency');
+  check('tap outside empty add-account form closes it', !(await form()));
+  await click('.addbtn', 'Add account');
+  await type('input[placeholder="Account name"]', 'Ghost');
+  await click('.section-h', 'Currency');
+  check('tap outside with typed name closes it', !(await form()));
+  eq('...and adds nothing', await accounts(), n);
+  await click('.addbtn', 'Add account');
+  await type('input[placeholder="Account name"]', 'Ghost');
+  await key('Escape');
+  check('Escape closes add-account form', !(await form()));
+  eq('...and adds nothing (Escape)', await accounts(), n);
+  noAlerts('swipe gestures');
 });
 
 flow('Add transactions', async () => {

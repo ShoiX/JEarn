@@ -140,10 +140,13 @@ h1 { margin: 0; font-size: 34px; font-weight: 700; letter-spacing: 0.01em; }
 
 /* setup */
 .srow-wrap { border-bottom: 0.5px solid var(--n800); }
-.srow { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 6px 0 12px; }
+.srow { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 12px; }
 .srow.acct { min-height: 56px; }
 .typebtn { display: flex; align-items: center; gap: 3px; height: 22px; font-size: 12px; color: var(--n500); }
-.iconbtn { flex: none; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; color: var(--n600); }
+.swipe { position: relative; overflow: hidden; }
+.swipe-body { background: var(--surface); touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.swipe-body.snap { transition: transform 200ms ease-out; }
+.swipe-act { position: absolute; top: 0; right: 0; bottom: 0; width: 80px; background: #FF9F0A; color: #fff; font-size: 15px; }
 .panel { padding: 0 0 8px; } .panel > .muted12, .panel > .addrow { margin: 4px 12px 0 42px; }
 .catbtn { flex: 1; min-width: 0; height: 48px; display: flex; align-items: center; gap: 10px; }
 .catbody { padding: 0 12px 6px 30px; }
