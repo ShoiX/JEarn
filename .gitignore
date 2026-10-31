@@ -3,6 +3,7 @@ node_modules/
 dist/
 coverage/
 .e2e/
+.e2e-update/
 *.tsbuildinfo
 
 # OS / editors

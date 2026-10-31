@@ -5,7 +5,9 @@ const CACHE = 'jearn-' + VERSION;
 
 // Precache the app shell; the new worker waits and takes over on the next launch.
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)));
+  // cache: 'reload' skips the browser's HTTP cache (GitHub Pages: max-age=600), so a quick redeploy can't precache
+  // the previous index.html, which points to a script the server no longer has (blank app until the next deploy).
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES.map((f) => new Request(f, { cache: 'reload' })))));
 });
 
 self.addEventListener('activate', (e) => {
