@@ -1,6 +1,6 @@
 import {
   Ledger, accountClass, makeSnapshot, newAccount, newExpenseCategory, newIncomeCategory,
-  newSubCategory, openingEntry, postDraft, correctDraft, draftMatchesEntry, previousMonth, setBudget, snapshotToJson, today, canChangeCurrency, currencyByCode,
+  newSubCategory, openingEntry, postDraft, correctDraft, draftMatchesEntry, setBudget, snapshotToJson, today, canChangeCurrency, currencyByCode,
   type Account, type AccountType, type Entry, type ExpenseCategory, type Imported, type IncomeCategory, type SubCategory,
   type TransactionDraft, type YearMonth,
 } from '../core';
@@ -91,7 +91,7 @@ export function makeActions(db: IDBDatabase, getData: () => Data, commit: (d: Da
     archiveSubcategory: (catId: string, subId: string, archived: boolean) =>
       editSub(catId, subId, ({ archivedAt: _x, ...s }) => (archived ? { ...s, archivedAt: nowIso() } : s)),
     setRollover: (id: string, on: boolean, thisMonth: YearMonth) =>
-      editCat(id, ({ rollStart: _x, ...c }) => (on ? { ...c, rollover: true, rollStart: previousMonth(thisMonth) } : { ...c, rollover: false })),
+      editCat(id, ({ rollStart: _x, ...c }) => (on ? { ...c, rollover: true, rollStart: thisMonth } : { ...c, rollover: false })),
     resetRollover: (id: string, thisMonth: YearMonth) => editCat(id, (c) => ({ ...c, rollStart: thisMonth })),
     /** Budget for `month` onward (earlier months keep theirs). */
     setBudget: (catId: string, subId: string | undefined, month: YearMonth, amountMinor: number) =>
