@@ -1255,6 +1255,9 @@ flow('Persistence and offline', async () => {
 flow('Crash shows the error, not a blank screen', async () => {
   await ev(`setTimeout(() => { throw new Error('boom test'); }); 1`);
   await sleep(200);
+  check('an error while the app is showing leaves it alone', await exists('.tabbar') && !(await exists('.fatal')));
+  await ev(`document.querySelector('.tabbar').remove(); setTimeout(() => { throw new Error('boom test'); }); 1`);
+  await sleep(200);
   has('error text replaces the app', await text('.fatal'), 'boom test');
   has('error text says data is safe', await text('.fatal'), 'Your data is safe');
 });
