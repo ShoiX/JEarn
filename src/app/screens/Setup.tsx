@@ -115,7 +115,8 @@ export function Setup() {
   const archivedCats = expenseCategories.filter((x) => x.archivedAt);
   const archivedSubs = expenseCategories.flatMap((x) => x.subs.filter((s) => s.archivedAt).map((s) => ({ cat: x, sub: s })));
   const archivedIncome = incomeCategories.filter((x) => x.archivedAt);
-  const hasArchived = archivedAccounts.length + archivedCats.length + archivedSubs.length + archivedIncome.length > 0;
+  const archivedCount = archivedAccounts.length + archivedCats.length + archivedSubs.length + archivedIncome.length;
+  const [showArchived, setShowArchived] = useState(false);
   const locked = !canChangeCurrency(ledger);
 
   return (
@@ -219,14 +220,22 @@ export function Setup() {
           : <button class="addbtn" onClick={() => setAdding('income')}><Icon name="plus" size={16} />Add income category</button>}
       </div>
 
-      {hasArchived && (
+      {archivedCount > 0 && (
         <>
           <SectionHeader>Archived</SectionHeader>
           <div class="group">
+            <div class="srow">
+              <button class="catbtn archtoggle" aria-expanded={showArchived} onClick={() => setShowArchived(!showArchived)}>
+                <span class="grow left">{archivedCount} {archivedCount === 1 ? 'item' : 'items'}</span>
+                <span class="muted"><Icon name={showArchived ? 'up' : 'down'} size={14} /></span>
+              </button>
+            </div>
+            {showArchived && <>
             {archivedAccounts.map((a) => <ArchivedRow key={a.id} name={a.name} onRestore={() => go(actions.archiveAccount(a.id, false))} />)}
             {archivedCats.map((x) => <ArchivedRow key={x.id} name={x.name} onRestore={() => go(actions.archiveExpenseCategory(x.id, false))} />)}
             {archivedSubs.map(({ cat, sub }) => <ArchivedRow key={sub.id} name={`${cat.name} › ${sub.name}`} onRestore={() => go(actions.archiveSubcategory(cat.id, sub.id, false))} />)}
             {archivedIncome.map((x) => <ArchivedRow key={x.id} name={x.name} onRestore={() => go(actions.archiveIncomeCategory(x.id, false))} />)}
+            </>}
           </div>
         </>
       )}
