@@ -198,6 +198,7 @@ h1 { margin: 0; font-size: 34px; font-weight: 700; letter-spacing: 0.01em; }
 .calcbtn.on { border-color: var(--accent); background: var(--accent-900); color: var(--accent-300); }
 .inpanel { margin: 0 16px 8px; padding: 10px; border-radius: 8px; background: var(--bg); display: flex; flex-direction: column; gap: 6px;
   flex: 0 1 auto; min-height: 0; overflow-y: auto; } /* shrinks and scrolls so the keypad and Save stay on screen */
+.inpanel > * { flex-shrink: 0; } /* Safari otherwise squashes the chip rows instead of scrolling the panel */
 .inpanel.row { flex-direction: row; align-items: center; }
 .inpanel .chip { background: var(--chip); } .inpanel .chip.on { background: var(--accent); }
 .dateinput { flex: 1; min-width: 0; height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--n800); background: transparent; color: var(--n500); font: inherit; font-size: 13px; }
@@ -209,7 +210,7 @@ h1 { margin: 0; font-size: 34px; font-weight: 700; letter-spacing: 0.01em; }
 .key:active { background: var(--n800); } .key:disabled { opacity: 0.3; }
 .key.fn { font-size: 19px; color: var(--n400); }
 .key.op { background: var(--accent-900); color: var(--accent-300); } .key.eq { background: var(--accent-800); color: var(--accent-200); }
-.primary-wrap { padding: 12px 16px 16px; }
+.primary-wrap { padding: 12px 16px 16px; margin-top: auto; }
 .stephead { display: flex; align-items: center; gap: 4px; padding: 4px 8px 6px; }
 .backbtn { height: 36px; padding: 0 8px; display: flex; align-items: center; gap: 4px; color: var(--n300); font-size: 15px; }
 .stephead .muted13 { padding-right: 10px; }
