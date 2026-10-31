@@ -254,6 +254,14 @@ const yestThis = YESTERDAY.slice(0, 7) === THIS_MONTH; // when run on the 1st, "
 const KEYMAP = { '*': '×', '/': '÷', '-': '−' };
 const pressKeys = async (s) => { for (const ch of s) await click('.key', KEYMAP[ch] ?? ch); };
 const openAdd = async () => { await click('.plus'); await waitFor(`!!document.querySelector('.sheet')`, 'add sheet'); await sleep(400); };
+async function openEdit (rowText) {
+  await click('.txrow', rowText);
+  await waitFor(`!!document.querySelector('.sheet')`, 'detail sheet');
+  await click('button', 'Edit');
+  await waitFor(`document.querySelector('.sheettitle')?.textContent === 'Edit Transaction'`, 'edit sheet');
+  await sleep(300);
+};
+
 async function addTx({ type: kind = 'expense', keys, calc = false, calcOff = false, account, from, to, date, customDate, note, category, middle }) {
   await openAdd();
   if (kind !== 'expense') await click('.seg button', kind[0].toUpperCase() + kind.slice(1));
@@ -824,13 +832,6 @@ flow('Reports', async () => {
 
 flow('Edit a transaction', async () => {
   await tab('Home');
-  const openEdit = async (rowText) => {
-    await click('.txrow', rowText);
-    await waitFor(`!!document.querySelector('.sheet')`, 'detail sheet');
-    await click('button', 'Edit');
-    await waitFor(`document.querySelector('.sheettitle')?.textContent === 'Edit Transaction'`, 'edit sheet');
-    await sleep(300);
-  };
   const saved = async () => { await waitFor(`!document.querySelector('.sheet')`, 'edit sheet to close'); await settle(); };
 
   // expense: add one to edit
@@ -1099,6 +1100,25 @@ flow('Future-dated entries', async () => {
   check('next month: listed in that month', (await homeRows()).some((r) => r.amt === php(900, '-') && r.title === 'Coffee'));
   eq('next month: balance includes it too', await bdo(), before - 1600);
   check('next-month button disabled at the latest month with an entry', await ev(`document.querySelector('.monthnav [aria-label="Next month"]').disabled`));
+  // edit an entry dated today to tomorrow
+  await addTx({ keys: '4', category: 'Coffee', note: 'move me' });
+  await tab('Home');
+  await click('.monthnav [aria-label="Previous month"]'); await settle();
+  if ((await text('.large-title h1')) !== monthTitle(THIS_MONTH)) { await click('.monthnav [aria-label="Next month"]'); await settle(); }
+  await openEdit('~move me');
+  await click('.pill', undefined, { nth: 1 });
+  await setNative('.dateinput', TOMORROW, 'change'); await settle();
+  has('edit: pill shows the future date', await text('.pill:nth-of-type(2)'), dayLabel(TOMORROW));
+  await blurDate();
+  await click('.primary', 'Choose category');
+  await click('.catchip', 'Coffee');
+  await waitFor(`!document.querySelector('.sheet')`, 'edit to future saved');
+  await settle();
+  const all = (await dump()).entries, moved = all.filter((e) => e.note === 'move me');
+  eq('edit: moved entry now dated tomorrow', moved.map((e) => e.date), [TODAY, TOMORROW]);
+  check('edit: original voided', all.some((e) => e.kind === 'reversal' && e.reverses === moved[0].id));
+  eq('edit: view jumps to the new date\'s month', await text('.large-title h1'), monthTitle(TOMORROW));
+  check('edit: moved entry listed', (await homeRows()).some((r) => r.meta.includes('move me')));
   const d = await dump();
   check('db: future entries keep their dates', d.entries.some((e) => e.date === TOMORROW && e.amountMinor === 700) && d.entries.some((e) => e.date === NEXT15 && e.amountMinor === 900));
   noAlerts('future-dated entries');
