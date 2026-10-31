@@ -902,7 +902,13 @@ flow('Edit a transaction', async () => {
     && neu.debitId === mobile.id && neu.creditId === bdoId && neu.date === YESTERDAY && neu.note === 'edit me' && !neu.reverses, canon(neu));
   eq('edit: balance reflects only the new amount', (await cards()).BDO, php(parseMoney(baseCards.BDO) + 4000 - 5550));
   await tab('Budgets');
-  has('edit: budgets reflect only the new amount', await body(), php(5550));
+  // Bills spending in the corrected month, from the ledger (on the 1st, "yesterday" is last month, which may hold other Bills entries).
+  const bills = after.expenseCats.find((c) => c.name === 'Bills'), billIds = new Set([bills.id, ...bills.subs.map((x) => x.id)]);
+  const voided = new Set(after.entries.filter((e) => e.reverses).map((e) => e.reverses));
+  const billsSpent = after.entries.filter((e) => e.kind === 'expense' && !voided.has(e.id) && billIds.has(e.debitId) && e.date.slice(0, 7) === YESTERDAY.slice(0, 7))
+    .reduce((t, e) => t + e.amountMinor, 0);
+  check('edit: corrected amount counted once in Bills', billsSpent >= 5550 && after.entries.filter((e) => !voided.has(e.id) && e.note === 'edit me' && e.kind === 'expense').length === 1);
+  has('edit: budgets reflect only the new amount', await body(), php(billsSpent));
   await tab('Home');
   noAlerts('edit expense');
 
@@ -1232,6 +1238,21 @@ flow('Page itself never scrolls (double tap cannot push the tab bar off)', async
   eq('page scroll stays at 0', await ev(`document.scrollingElement.scrollTop`), 0);
   const tb = await ev(`JSON.stringify(document.querySelector('.tabbar').getBoundingClientRect().bottom)`);
   check('tab bar sits at the bottom of the screen (±2px)', Math.abs(+tb - await ev(`innerHeight`)) <= 2, String(tb));
+});
+
+flow('Stuck start shows the step and a reset that keeps data', async () => {
+  const before = await cards();
+  const { identifier } = await send('Page.addScriptToEvaluateOnNewDocument', { source: 'IDBFactory.prototype.open = function () { return {}; };' });
+  await send('Page.navigate', { url: BASE });
+  await waitFor(`!!document.getElementById('reset-files')`, 'stuck screen', 8000);
+  has('stuck screen names the step', await text('#app'), 'stuck opening the database');
+  has('stuck screen says data is safe', await text('#app'), 'Your data is safe');
+  await send('Page.removeScriptToEvaluateOnNewDocument', { identifier });
+  await ev(`document.getElementById('reset-files').click(); 1`);
+  await waitFor(`document.readyState === 'complete' && !!document.querySelector('.tabbar')`, 'app after reset', 8000);
+  eq('after reset: app loads with the same data', await cards(), before);
+  await sleep(5500);
+  check('safety net stays away when the app is showing', await exists('.tabbar') && !(await exists('#reset-files')));
 });
 
 flow('Persistence and offline', async () => {
