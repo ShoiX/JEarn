@@ -1183,6 +1183,16 @@ flow('Home: filter by account', async () => {
   noAlerts('filter by account');
 });
 
+flow('Page itself never scrolls (double tap cannot push the tab bar off)', async () => {
+  await tab('Home');
+  eq('html/body overflow hidden', await ev(`[getComputedStyle(document.documentElement).overflow, getComputedStyle(document.body).overflow].join()`), 'hidden,hidden');
+  eq('double-tap zoom off (touch-action)', await ev(`getComputedStyle(document.body).touchAction`), 'manipulation');
+  await ev(`window.scrollTo(0, 500); document.scrollingElement.scrollTop = 500; 1`);
+  eq('page scroll stays at 0', await ev(`document.scrollingElement.scrollTop`), 0);
+  const tb = await ev(`JSON.stringify(document.querySelector('.tabbar').getBoundingClientRect().bottom)`);
+  check('tab bar sits at the bottom of the screen (±2px)', Math.abs(+tb - await ev(`innerHeight`)) <= 2, String(tb));
+});
+
 flow('Persistence and offline', async () => {
   const before = await dump();
   const balances = await cards();

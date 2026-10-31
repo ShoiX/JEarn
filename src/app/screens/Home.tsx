@@ -43,8 +43,8 @@ export function Home({ month, setMonth, openTx }: { month: YearMonth; setMonth: 
       <div class="strip">
         {shown.map((a) => (
           <button class={'acard' + (sel ? (sel === a ? ' sel' : ' dim') : '')} key={a.id} aria-pressed={sel === a} onClick={() => setAcct(sel === a ? null : a.id)}>
-            <div class="aname"><Icon name={accountIcon(a.type)} size={14} />{a.name}</div>
-            <div class="abal">{formatMoney(c, ledger.balance(a.id, accountClass(a.type)))}</div>
+            <span class="aname"><Icon name={accountIcon(a.type)} size={14} />{a.name}</span>
+            <span class="abal">{formatMoney(c, ledger.balance(a.id, accountClass(a.type)))}</span>
           </button>
         ))}
         {shown.length === 0 && <div class="muted14 pad-h">Add an account in Setup.</div>}

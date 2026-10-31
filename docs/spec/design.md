@@ -15,6 +15,7 @@
 - **Month arrows:** 34pt circular buttons, fill `#232532`, accent chevrons.
 - **Destructive:** text `#FF6961` on `#2C2430` (use `role: .destructive`).
 - Prefer plain HTML elements (`button`, `input`) styled with CSS; keep components few and small.
+- **Fixed frame:** the page itself never scrolls or zooms (html/body `overflow: hidden`, `touch-action: manipulation`); only the content area scrolls, so a double tap can never shift the tab bar.
 
 ## Fidelity
 **High-fidelity.** Colours, type sizes, spacing and interactions are final. Use the system font instead of Inter; keep sizes and weights. Draw icons as inline SVGs in the SF Symbols style (mapping below names the SF Symbol each one imitates).
