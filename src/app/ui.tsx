@@ -78,7 +78,8 @@ export function SwipeRow({ id, name, openId, setOpenId, onArchive, children }: {
       if (rest !== 0) setOpenId(id); else if (open) setOpenId(null);
     }
     s.axis = null; setDrag(null);
-    (e.currentTarget as HTMLElement).releasePointerCapture?.(s.pid);
+    const el = e.currentTarget as HTMLElement; // iOS throws if we release a pointer we never captured
+    if (el.hasPointerCapture?.(s.pid)) el.releasePointerCapture(s.pid);
   };
   return (
     <div class="swipe" ref={root}>

@@ -5,9 +5,10 @@ import './styles.css';
 
 boot.page = performance.now();
 
-// If anything fails while running, show the error instead of a blank (dark) screen.
+// If the app fails to show (blank, dark screen), show the error instead. Errors while it's on screen are left alone.
 const showError = (msg: string) => {
   const el = document.getElementById('app')!;
+  if (el.querySelector('.tabbar')) return;
   el.innerHTML = '';
   const pre = document.createElement('pre');
   pre.className = 'fatal';

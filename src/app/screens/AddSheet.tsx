@@ -140,7 +140,7 @@ export function AddSheet({ edit, onClose, onSaved }: { edit?: Entry; onClose: ()
         })}
       </div>}
       <div class="primary-wrap">
-        <button class="primary" disabled={!ready || busy} onClick={() => (transfer ? save() : setStep('cat'))}>{transfer ? 'Save transfer' : 'Choose category'}</button>
+        <button class="primary" disabled={!ready || busy} onClick={() => (transfer ? save() : (setPicker(null), setStep('cat')))}>{transfer ? 'Save transfer' : 'Choose category'}</button>
       </div>
     </Sheet>
   );

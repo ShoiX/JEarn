@@ -17,7 +17,7 @@ The app must stay minimal: target **≤ 200 KB** of app files (gzipped), fully o
 - **Icons:** a small set of inline SVGs drawn in the SF Symbols style (see [design.md](design.md)). No icon fonts or packs.
 - **Charts:** plain SVG/CSS. No chart libraries.
 - **Storage:** IndexedDB on-device; request persistent storage (`navigator.storage.persist()`). No backend, no login. The only network use is loading/updating the app files.
-- **Errors:** if the app hits an unexpected error, it replaces the screen with the error text and "Your data is safe" (no blank screen), so the owner can report it.
+- **Errors:** if an unexpected error leaves the app not showing (no tab bar), it shows the error text instead and "Your data is safe" (no blank screen), so the owner can report it.
 - **Offline:** a hand-written service worker caches the app shell. No push notifications, background sync or location access.
 - **Backup to a private server is planned for a later version** — not built in v1, but v1 must be backup-ready (see [backup.md](backup.md)). v1 itself makes no network calls.
 - Expected data size: ~100–200 bytes per transaction (≈1–2 MB after years of daily use).
