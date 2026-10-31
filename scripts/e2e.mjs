@@ -1050,6 +1050,30 @@ flow('Layout: worst-case data on a 375×667 screen', async () => {
   await addTx({ type: 'income', keys: '5000', account: LONG, category: 'Salary', note: NOTE });
   await tab('Home'); await audit('Home with long names'); await shot('17-layout-home');
 
+  // many accounts: the transfer picker's chip rows must keep full height (the panel scrolls instead)
+  await tab('Setup');
+  for (const n of ['Maya Wallet', 'GCash Savings', 'UnionBank Credit Card', 'Pag-IBIG MP2', 'Emergency Fund Cash']) {
+    await click('.addbtn', 'Add account');
+    await type('input[placeholder="Account name"]', n);
+    await type('input[placeholder="Balance"]', '100');
+    await click('.primary.small', 'Add');
+    await waitFor(`[...document.querySelectorAll('.srow.acct')].some((r) => r.textContent.includes(${J(n)}))`, 'account ' + n);
+  }
+  await tab('Home');
+  await openAdd();
+  await click('.seg button', 'Transfer');
+  await click('.pill', undefined, { nth: 0 });
+  const squashed = await ev(`[...document.querySelectorAll('.inpanel > *')].filter((el) => el.getBoundingClientRect().height + 1 < el.scrollHeight).length`);
+  eq('many accounts: no squashed rows in the account picker', squashed, 0);
+  check('many accounts: picker lists every account twice', await ev(`document.querySelectorAll('.inpanel .chip').length`) >= 16);
+  check('many accounts: keypad hidden while picking an account', !(await exists('.keypad')));
+  eq('many accounts: every From chip fully visible without scrolling', await ev(`(() => { const p = document.querySelector('.inpanel').getBoundingClientRect(); return [...document.querySelectorAll('.inpanel .chips')[0].querySelectorAll('.chip')].filter((c) => { const r = c.getBoundingClientRect(); return r.top < p.top || r.bottom > p.bottom; }).length; })()`), 0);
+  await audit('Transfer picker with many accounts'); await shot('22-layout-many-accounts');
+  await click('.inpanel .chip', 'Emergency Fund Cash', { nth: 1 });
+  has('many accounts: last To chip is tappable', await text('.pill:nth-of-type(1)'), 'Emergency Fund Cash');
+  check('many accounts: keypad back after picking To', await exists('.keypad'));
+  await click('.textbtn', 'Cancel'); await waitFor(`!document.querySelector('.sheet')`, 'add closed'); await settle();
+
   const detail = async (title, label) => {
     await click('.txrow', '~' + title);
     await waitFor(`!!document.querySelector('.sheet')`, 'detail sheet'); await sleep(400);

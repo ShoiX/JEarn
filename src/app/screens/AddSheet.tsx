@@ -127,7 +127,7 @@ export function AddSheet({ edit, onClose, onSaved }: { edit?: Entry; onClose: ()
             onBlur={() => { if (mode === 'custom') setPicker(null); }} />
         </div>
       )}
-      <div class={'keypad ' + keyCol}>
+      {picker !== 'acct' && <div class={'keypad ' + keyCol}>
         {(calc ? CALC : SIMPLE).map((k) => {
           const op = k === '+' || k === '-' || k === '*' || k === '/';
           const cls = k === 'equals' ? 'eq' : op ? 'op' : k === 'clear' || k === '(' || k === ')' ? 'fn' : '';
@@ -138,7 +138,7 @@ export function AddSheet({ edit, onClose, onSaved }: { edit?: Entry; onClose: ()
             </button>
           );
         })}
-      </div>
+      </div>}
       <div class="primary-wrap">
         <button class="primary" disabled={!ready || busy} onClick={() => (transfer ? save() : setStep('cat'))}>{transfer ? 'Save transfer' : 'Choose category'}</button>
       </div>
