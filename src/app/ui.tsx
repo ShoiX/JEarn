@@ -1,5 +1,6 @@
 import type { ComponentChildren } from 'preact';
-import { useRef } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
+import { SWIPE_OPEN, lockAxis, settleOffset, swipeOffset } from '../core';
 import { Icon } from './icons';
 
 export function Segmented<T extends string>({ value, options, onChange, label, disabled }: {
@@ -52,3 +53,53 @@ export function Sheet({ onClose, tall, children }: { onClose: () => void; tall: 
 
 /** Ref callback: focus an input once when it appears (iOS ignores autofocus). */
 export const focusOnce = (el: HTMLInputElement | null) => { if (el && !el.dataset.f) { el.dataset.f = '1'; el.focus(); } };
+
+/** Row that slides left to reveal an "Archive" button. `openId` is shared so only one row is open at a time. */
+export function SwipeRow({ id, name, openId, setOpenId, onArchive, children }: {
+  id: string; name: string; openId: string | null; setOpenId: (id: string | null) => void; onArchive: () => void; children: ComponentChildren;
+}) {
+  const open = openId === id;
+  const root = useRef<HTMLDivElement>(null);
+  const g = useRef({ x: 0, y: 0, start: 0, axis: null as 'h' | 'v' | null, moved: false, pid: -1 });
+  const [drag, setDrag] = useState<number | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    // Like iOS: a tap elsewhere only closes the row (the tap is swallowed); scrolling closes it too.
+    const away = (e: Event) => { if (!root.current?.contains(e.target as Node)) { e.preventDefault(); e.stopPropagation(); setOpenId(null); } };
+    const scroll = () => setOpenId(null);
+    document.addEventListener('click', away, true);
+    document.addEventListener('scroll', scroll, true);
+    return () => { document.removeEventListener('click', away, true); document.removeEventListener('scroll', scroll, true); };
+  }, [open]);
+  const end = (e: PointerEvent, cancel: boolean) => {
+    const s = g.current;
+    if (s.axis === 'h' && drag !== null) {
+      const rest = cancel ? s.start : settleOffset(drag);
+      if (rest !== 0) setOpenId(id); else if (open) setOpenId(null);
+    }
+    s.axis = null; setDrag(null);
+    (e.currentTarget as HTMLElement).releasePointerCapture?.(s.pid);
+  };
+  return (
+    <div class="swipe" ref={root}>
+      {/* Covered by the row until it slides open; focusing it (VoiceOver, keyboard) opens the row. */}
+      <button class="swipe-act" aria-label={`Archive ${name}`} onFocus={() => setOpenId(id)} onClick={onArchive}>Archive</button>
+      <div class={'swipe-body' + (drag === null ? ' snap' : '')} style={{ transform: `translateX(${drag ?? (open ? -SWIPE_OPEN : 0)}px)` }}
+        onPointerDown={(e) => { const s = g.current; s.x = e.clientX; s.y = e.clientY; s.start = open ? -SWIPE_OPEN : 0; s.axis = null; s.moved = false; s.pid = e.pointerId; }}
+        onPointerMove={(e) => {
+          const s = g.current, dx = e.clientX - s.x;
+          if (s.axis === null) {
+            if (!(e.buttons & 1) && e.pointerType === 'mouse') return;
+            s.axis = lockAxis(dx, e.clientY - s.y);
+            if (s.axis === 'h') { s.moved = true; e.currentTarget.setPointerCapture(e.pointerId); }
+          }
+          if (s.axis === 'h') setDrag(swipeOffset(s.start, dx));
+        }}
+        onPointerUp={(e) => end(e, false)}
+        onPointerCancel={(e) => end(e, true)}
+        onClickCapture={(e) => { const s = g.current; if (s.moved || open) { e.preventDefault(); e.stopPropagation(); if (!s.moved) setOpenId(null); s.moved = false; } }}>
+        {children}
+      </div>
+    </div>
+  );
+}
