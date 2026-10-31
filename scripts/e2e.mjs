@@ -459,17 +459,27 @@ flow('Setup: categories and rollover', async () => {
   check('no Reset button while off', !(await exists('.rollrow .ghost', 'Reset')));
   await click('.rollrow .switch');
   eq('rollover switched on', await sw(), 'true');
-  has('rollover on note', await note(), 'Carrying');
+  eq('rollover on note: starts fresh (no carry from earlier months)', await note(), 'Starts fresh this month');
   check('Reset button appears when on', await exists('.rollrow .ghost', 'Reset'));
-  eq('db: rollStart = previous month', (await dump()).expenseCats.find((c) => c.name === 'Food').rollStart, PREV_MONTH);
+  eq('db: rollStart = this month', (await dump()).expenseCats.find((c) => c.name === 'Food').rollStart, THIS_MONTH);
   await click('.rollrow .ghost', 'Reset');
   eq('Reset note', await note(), 'Starts fresh this month');
   eq('db: Reset sets rollStart = this month', (await dump()).expenseCats.find((c) => c.name === 'Food').rollStart, THIS_MONTH);
   await click('.rollrow .switch');
   eq('rollover switched off', await sw(), 'false');
   await click('.rollrow .switch');
-  eq('rollover on again (rollStart previous month for the budget test)', (await dump()).expenseCats.find((c) => c.name === 'Food').rollStart, PREV_MONTH);
+  eq('rollover on again starts this month', (await dump()).expenseCats.find((c) => c.name === 'Food').rollStart, THIS_MONTH);
   await shot('03-setup-rollover');
+  // The budget tests need a carry from last month, as if rollover had been on since then: seed rollStart and reload.
+  await ev(`(async () => {
+    const db = await new Promise((res, rej) => { const r = indexedDB.open('jearn'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+    const s = db.transaction('expenseCats', 'readwrite').objectStore('expenseCats');
+    const all = await new Promise((res) => { const r = s.getAll(); r.onsuccess = () => res(r.result); });
+    const food = all.find((c) => c.name === 'Food');
+    await new Promise((res) => { const r = s.put({ ...food, rollStart: ${J(PREV_MONTH)} }); r.onsuccess = res; });
+    db.close(); })()`);
+  await load();
+  eq('seeded: rollover since last month', (await dump()).expenseCats.find((c) => c.name === 'Food').rollStart, PREV_MONTH);
   noAlerts('categories');
 });
 
