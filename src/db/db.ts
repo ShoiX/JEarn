@@ -48,19 +48,44 @@ export async function loadAll(db: IDBDatabase): Promise<Imported> {
   };
 }
 
-export async function appendEntry(db: IDBDatabase, e: Entry): Promise<void> {
-  const tx = db.transaction(ENTRIES, 'readwrite');
+const clone = <T extends object>(v: T): T => JSON.parse(JSON.stringify(v));
+
+export interface Batch { entries?: readonly Entry[]; accounts?: readonly Account[]; expenseCats?: readonly ExpenseCategory[]; incomeCats?: readonly IncomeCategory[] }
+
+/** One user action = one readwrite transaction over just the stores needed: everything is written or nothing. Entries are add-only. */
+export async function writeBatch(db: IDBDatabase, b: Batch): Promise<void> {
+  const parts: [string, readonly object[] | undefined][] = [[ENTRIES, b.entries], [ACCOUNTS, b.accounts], [EXPENSE, b.expenseCats], [INCOME, b.incomeCats]];
+  const used = parts.filter(([, xs]) => xs?.length);
+  if (!used.length) return;
+  const tx = db.transaction(used.map(([s]) => s), 'readwrite');
   const d = done(tx);
-  tx.objectStore(ENTRIES).add({ ...e });
+  for (const [s, xs] of used) for (const x of xs!) { const o = tx.objectStore(s); if (s === ENTRIES) o.add({ ...x }); else o.put(clone(x)); }
   await d;
 }
 
-/** Adds several entries in one transaction: all are written or none (add-only). */
-export async function appendEntries(db: IDBDatabase, es: readonly Entry[]): Promise<void> {
-  const tx = db.transaction(ENTRIES, 'readwrite');
-  const d = done(tx);
-  for (const e of es) tx.objectStore(ENTRIES).add({ ...e });
-  await d;
+export const appendEntries = (db: IDBDatabase, entries: readonly Entry[]) => writeBatch(db, { entries });
+
+export interface Connection { use<T>(fn: (db: IDBDatabase) => Promise<T>): Promise<T> }
+
+/** Lazily opened, cached connection. iOS may close it in the background: on InvalidStateError (nothing was written) reopen and retry once. */
+export function connect(name = 'jearn'): Connection {
+  let cached: Promise<IDBDatabase> | null = null;
+  const get = () => cached ??= openDb(name).then((db) => {
+    const drop = () => { cached = null; };
+    db.onclose = drop;
+    db.onversionchange = () => { db.close(); drop(); };
+    return db;
+  }, (e) => { cached = null; throw e; });
+  const isClosed = (e: unknown) => e instanceof DOMException && e.name === 'InvalidStateError';
+  return {
+    async use(fn) {
+      try { return await fn(await get()); } catch (e) {
+        if (!isClosed(e)) throw e;
+        cached = null;
+        return fn(await get());
+      }
+    },
+  };
 }
 
 async function put(db: IDBDatabase, store: string, value: object): Promise<void> {
