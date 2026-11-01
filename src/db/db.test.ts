@@ -4,7 +4,7 @@ import {
   Ledger, PHP, AUD, newAccount, newExpenseCategory, newIncomeCategory, newSubCategory,
 } from '../core';
 import {
-  appendEntries, appendEntry, importAll, loadAll, openDb, putAccount, putExpenseCat, putIncomeCat, putSettings,
+  appendEntries, connect, importAll, writeBatch, loadAll, openDb, putAccount, putExpenseCat, putIncomeCat, putSettings,
 } from './db';
 
 const now = new Date('2026-10-27T12:00:00Z');
@@ -39,7 +39,7 @@ describe('db', () => {
   it('appends entries and loads them ordered by seq', async () => {
     const db = await fresh();
     const { l } = ledgerWith(3);
-    for (const e of [...l.entries].reverse()) await appendEntry(db, e);
+    for (const e of [...l.entries].reverse()) await appendEntries(db, [e]);
     const s = await loadAll(db);
     expect(s.ledger.entries.map((e) => e.seq)).toEqual([1, 2, 3]);
     expect(s.ledger.entries).toEqual(l.entries);
@@ -48,17 +48,17 @@ describe('db', () => {
   it('the entries store is add-only: a duplicate id or seq is rejected', async () => {
     const db = await fresh();
     const { l } = ledgerWith(2);
-    await appendEntry(db, l.entries[0]!);
-    await expect(appendEntry(db, l.entries[0]!)).rejects.toThrow();
-    await expect(appendEntry(db, { ...l.entries[1]!, seq: 1 })).rejects.toThrow();
+    await appendEntries(db, [l.entries[0]!]);
+    await expect(appendEntries(db, [l.entries[0]!])).rejects.toThrow();
+    await expect(appendEntries(db, [{ ...l.entries[1]!, seq: 1 }])).rejects.toThrow();
     expect((await loadAll(db)).ledger.entries).toEqual([l.entries[0]]);
   });
 
   it('rejects a corrupt ledger (seq gap)', async () => {
     const db = await fresh();
     const { l } = ledgerWith(3);
-    await appendEntry(db, l.entries[0]!);
-    await appendEntry(db, l.entries[2]!);
+    await appendEntries(db, [l.entries[0]!]);
+    await appendEntries(db, [l.entries[2]!]);
     await expect(loadAll(db)).rejects.toThrow(/seq/);
   });
 
@@ -94,7 +94,7 @@ describe('db', () => {
   it('importAll refuses when entries exist and changes nothing', async () => {
     const db = await fresh();
     const { l } = ledgerWith(1);
-    await appendEntry(db, l.entries[0]!);
+    await appendEntries(db, [l.entries[0]!]);
     await expect(importAll(db, fixture())).rejects.toThrow(/empty/);
     const s = await loadAll(db);
     expect(s.ledger.entries).toEqual(l.entries);
@@ -112,9 +112,60 @@ describe('appendEntries', () => {
   it('writes none when one fails', async () => {
     const db = await fresh();
     const { l } = ledgerWith(3);
-    await appendEntry(db, l.entries[0]!);
+    await appendEntries(db, [l.entries[0]!]);
     const dup = { ...l.entries[2]!, seq: 1 }; // seq 1 already used
     await expect(appendEntries(db, [l.entries[1]!, dup])).rejects.toThrow();
     expect((await loadAll(db)).ledger.entries).toEqual([l.entries[0]]);
+  });
+});
+
+describe('writeBatch', () => {
+  it('writes an account and its entries together', async () => {
+    const db = await fresh();
+    const { l, a } = ledgerWith(2);
+    await writeBatch(db, { accounts: [a], entries: l.entries });
+    const s = await loadAll(db);
+    expect(s.accounts).toEqual([a]);
+    expect(s.ledger.entries).toEqual(l.entries);
+  });
+
+  it('stores nothing if one entry fails (account too)', async () => {
+    const db = await fresh();
+    const { l, a } = ledgerWith(2);
+    await appendEntries(db, [l.entries[0]!]);
+    const food = newExpenseCategory('Food');
+    await expect(writeBatch(db, { accounts: [a], expenseCats: [food], entries: [l.entries[1]!, l.entries[0]!] })).rejects.toThrow();
+    const s = await loadAll(db);
+    expect(s.accounts).toEqual([]);
+    expect(s.expenseCategories).toEqual([]);
+    expect(s.ledger.entries).toEqual([l.entries[0]]);
+  });
+});
+
+describe('connect', () => {
+  it('reopens after the connection is closed and the write persists', async () => {
+    const h = connect(`jearn-conn-${++n}`);
+    let first!: IDBDatabase;
+    await h.use(async (db) => { first = db; });
+    first.close();
+    const { l, a } = ledgerWith(1);
+    await h.use((db) => writeBatch(db, { accounts: [a], entries: l.entries }));
+    const s = await h.use((db) => loadAll(db));
+    expect(s.accounts).toEqual([a]);
+    expect(s.ledger.entries).toEqual(l.entries);
+  });
+
+  it('does not retry other errors', async () => {
+    const h = connect(`jearn-conn-${++n}`);
+    let calls = 0;
+    await expect(h.use(async () => { calls++; throw new Error('boom'); })).rejects.toThrow('boom');
+    expect(calls).toBe(1);
+  });
+
+  it('retries once on InvalidStateError, then gives up', async () => {
+    const h = connect(`jearn-conn-${++n}`);
+    let calls = 0;
+    await expect(h.use(async () => { calls++; throw new DOMException('closing', 'InvalidStateError'); })).rejects.toThrow('closing');
+    expect(calls).toBe(2);
   });
 });

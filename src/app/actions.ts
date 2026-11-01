@@ -5,7 +5,7 @@ import {
   type TransactionDraft, type YearMonth,
 } from '../core';
 import {
-  appendEntries, appendEntry, importAll, loadAll, putAccount, putExpenseCat, putIncomeCat, putSettings,
+  type Connection, appendEntries, importAll, loadAll, putAccount, putExpenseCat, putIncomeCat, putSettings, writeBatch,
 } from '../db/db';
 
 export type Data = Imported;
@@ -17,7 +17,7 @@ const touch = <T extends { updatedAt: string }>(x: T): T => ({ ...x, updatedAt: 
 const swap = <T extends { id: string }>(xs: T[], x: T) => xs.map((y) => (y.id === x.id ? x : y));
 
 /** Every user action: write to IndexedDB first (awaited), then update the in-memory state. Actions run one at a time. */
-export function makeActions(db: IDBDatabase, getData: () => Data, commit: (d: Data) => void) {
+export function makeActions(conn: Connection, getData: () => Data, commit: (d: Data) => void) {
   let chain: Promise<unknown> = Promise.resolve();
   const run = <T>(fn: () => Promise<T>): Promise<T> => {
     const p = chain.then(fn);
@@ -25,21 +25,21 @@ export function makeActions(db: IDBDatabase, getData: () => Data, commit: (d: Da
     return p;
   };
   // After a failed multi-step write, trust the database over memory.
-  const resync = async () => commit(await loadAll(db));
+  const resync = async () => commit(await conn.use(loadAll));
 
   const editAccount = (id: string, f: (a: Account) => Account) => run(async () => {
     const d = getData(); const a = d.accounts.find((x) => x.id === id); if (!a) return;
-    const n = touch(f(a)); await putAccount(db, n); commit({ ...d, accounts: swap(d.accounts, n) });
+    const n = touch(f(a)); await conn.use((db) => putAccount(db, n)); commit({ ...d, accounts: swap(d.accounts, n) });
   });
   const editCat = (id: string, f: (c: ExpenseCategory) => ExpenseCategory) => run(async () => {
     const d = getData(); const c = d.expenseCategories.find((x) => x.id === id); if (!c) return;
-    const n = touch(f(c)); await putExpenseCat(db, n); commit({ ...d, expenseCategories: swap(d.expenseCategories, n) });
+    const n = touch(f(c)); await conn.use((db) => putExpenseCat(db, n)); commit({ ...d, expenseCategories: swap(d.expenseCategories, n) });
   });
   const editSub = (catId: string, subId: string, f: (s: SubCategory) => SubCategory) =>
     editCat(catId, (c) => ({ ...c, subs: c.subs.map((s) => (s.id === subId ? touch(f(s)) : s)) }));
   const editIncome = (id: string, f: (c: IncomeCategory) => IncomeCategory) => run(async () => {
     const d = getData(); const c = d.incomeCategories.find((x) => x.id === id); if (!c) return;
-    const n = touch(f(c)); await putIncomeCat(db, n); commit({ ...d, incomeCategories: swap(d.incomeCategories, n) });
+    const n = touch(f(c)); await conn.use((db) => putIncomeCat(db, n)); commit({ ...d, incomeCategories: swap(d.incomeCategories, n) });
   });
 
   /** Runs ledger writes on a copy, appends the new entries to the database, then swaps the ledger in. */
@@ -47,7 +47,7 @@ export function makeActions(db: IDBDatabase, getData: () => Data, commit: (d: Da
     const d = getData(); const l = new Ledger(d.ledger.entries);
     const result = fn(l);
     try {
-      await appendEntries(db, collect(result));
+      await conn.use((db) => appendEntries(db, collect(result)));
     } catch (err) { await resync(); throw err; }
     commit({ ...d, ledger: l });
     return result;
@@ -58,11 +58,10 @@ export function makeActions(db: IDBDatabase, getData: () => Data, commit: (d: Da
     addAccount(name: string, type: AccountType, openingMinor: number) {
       return run(async () => {
         const d = getData(); const a = newAccount(name, type);
-        await putAccount(db, a);
         const l = new Ledger(d.ledger.entries);
         const before = l.entries.length;
         if (openingMinor > 0) l.postOpening({ account: a.id, accountClass: accountClass(type), amountMinor: openingMinor, date: today(new Date()), now: new Date() });
-        try { for (const e of fresh(l, before)) await appendEntry(db, e); } catch (err) { await resync(); throw err; }
+        try { await conn.use((db) => writeBatch(db, { accounts: [a], entries: fresh(l, before) })); } catch (err) { await resync(); throw err; }
         commit({ ...d, accounts: [...d.accounts, a], ledger: l });
       });
     },
@@ -76,14 +75,14 @@ export function makeActions(db: IDBDatabase, getData: () => Data, commit: (d: Da
         const old = openingEntry(l, id); const now = new Date();
         if (old) l.void(old.id, now);
         if (amountMinor > 0) l.postOpening({ account: id, accountClass: accountClass(a.type), amountMinor, date: old?.date ?? today(now), now });
-        try { for (const e of fresh(l, before)) await appendEntry(db, e); } catch (err) { await resync(); throw err; }
+        try { await conn.use((db) => appendEntries(db, fresh(l, before))); } catch (err) { await resync(); throw err; }
         commit({ ...d, ledger: l });
       });
     },
 
     addExpenseCategory: (name: string) => run(async () => {
       const d = getData(); const c = newExpenseCategory(name);
-      await putExpenseCat(db, c); commit({ ...d, expenseCategories: [...d.expenseCategories, c] });
+      await conn.use((db) => putExpenseCat(db, c)); commit({ ...d, expenseCategories: [...d.expenseCategories, c] });
     }),
     addSubcategory: (catId: string, name: string) => editCat(catId, (c) => ({ ...c, subs: [...c.subs, newSubCategory(name)] })),
     archiveExpenseCategory: (id: string, archived: boolean) =>
@@ -101,7 +100,7 @@ export function makeActions(db: IDBDatabase, getData: () => Data, commit: (d: Da
 
     addIncomeCategory: (name: string) => run(async () => {
       const d = getData(); const c = newIncomeCategory(name);
-      await putIncomeCat(db, c); commit({ ...d, incomeCategories: [...d.incomeCategories, c] });
+      await conn.use((db) => putIncomeCat(db, c)); commit({ ...d, incomeCategories: [...d.incomeCategories, c] });
     }),
     archiveIncomeCategory: (id: string, archived: boolean) =>
       editIncome(id, ({ archivedAt: _x, ...c }) => (archived ? { ...c, archivedAt: nowIso() } : c)),
@@ -109,7 +108,7 @@ export function makeActions(db: IDBDatabase, getData: () => Data, commit: (d: Da
     setCurrency: (code: string) => run(async () => {
       const d = getData(); const cur = currencyByCode(code);
       if (!cur || !canChangeCurrency(d.ledger)) return;
-      await putSettings(db, { currency: cur.code }); commit({ ...d, currency: cur });
+      await conn.use((db) => putSettings(db, { currency: cur.code })); commit({ ...d, currency: cur });
     }),
 
     /** Posts the draft; resolves to the new entry. */
@@ -128,7 +127,7 @@ export function makeActions(db: IDBDatabase, getData: () => Data, commit: (d: Da
     },
     voidEntry: (id: string) => withLedger((l) => { const b = l.entries.length; l.void(id, new Date()); return l.entries.slice(b); }, (es) => es),
 
-    importData: (data: Data) => run(async () => { await importAll(db, data); commit(data); }),
+    importData: (data: Data) => run(async () => { await conn.use((db) => importAll(db, data)); commit(data); }),
 
     exportJson(): { name: string; text: string } {
       const d = getData(); const now = new Date();
