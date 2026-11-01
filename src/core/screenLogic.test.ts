@@ -147,6 +147,11 @@ describe('home list', () => {
     s.post('transfer', day(2026, 10, 27), s.card.id, s.bank.id, 500); // to archived card
     expect(sections(s)[0]!.rows[0]).toMatchObject({ title: 'Transfer', meta: 'Bank → Card', kind: 'transfer', amountText: '$5.00' });
   });
+  it('transfer row meta appends the note, omitted when empty', () => {
+    const s = shop();
+    s.post('transfer', day(2026, 10, 27), s.card.id, s.bank.id, 500, 'Mum – electricity');
+    expect(sections(s)[0]!.rows[0]!.meta).toBe('Bank → Card · Mum – electricity');
+  });
 });
 
 // ---- draft
