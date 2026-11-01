@@ -1300,6 +1300,84 @@ flow('Persistence and offline', async () => {
   await send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
 });
 
+flow('Transfer note', async () => {
+  await tab('Home');
+  const saved = async () => { await waitFor(`!document.querySelector('.sheet')`, 'sheet to close'); await settle(); };
+  const NOTE = 'Mum – electricity';
+  const field = `document.querySelector('.sheet input.field')`;
+
+  // not offered for expense/income on the amount step; offered for transfer
+  await openAdd();
+  eq('amount step: expense has no note field', await exists('.sheet input.field'), false);
+  await click('.seg button', 'Income');
+  eq('amount step: income has no note field', await exists('.sheet input.field'), false);
+  await click('.seg button', 'Transfer');
+  eq('amount step: transfer has a note field', await ev(`${field}?.placeholder`), 'Note (optional)');
+  await click('.pill', undefined, { nth: 0 });
+  eq('note field hidden while the account picker is open', await exists('.sheet input.field'), false);
+  await click('.inpanel .chips .chip', 'BDO', { nth: 0 });
+  await click('.inpanel .chips .chip', 'Wallet', { nth: 1 });
+  eq('note field back after the picker closes', await exists('.sheet input.field'), true);
+  await click('.pill', undefined, { nth: 1 });
+  eq('note field hidden while the date picker is open', await exists('.sheet input.field'), false);
+  await click('.inpanel .chip', 'Today');
+  await type('.sheet input.field', NOTE);
+
+  // layout worst case: calculator on (4 columns) with the note showing, inside 375x667
+  await click('.calcbtn');
+  await pressKeys('12+3');
+  const lay = await ev(`(() => {
+    const r = (e) => e.getBoundingClientRect(), H = innerHeight, W = innerWidth;
+    const els = [...document.querySelectorAll('.sheet .key, .sheet .primary, .sheet input.field, .sheet .pills')].map((e) => ({ e, b: r(e) }));
+    const inside = els.every(({ b }) => b.top >= 0 && b.bottom <= H && b.left >= 0 && b.right <= W);
+    const keys = els.filter(({ e }) => e.classList.contains('key')).map(({ b }) => b);
+    const prim = els.find(({ e }) => e.classList.contains('primary')).b;
+    const lastKey = Math.max(...keys.map((b) => b.bottom));
+    let overlap = false;
+    for (let i = 0; i < els.length; i++) for (let j = i + 1; j < els.length; j++) {
+      const a = els[i].b, b = els[j].b;
+      if (a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1) overlap = true;
+    }
+    return { inside, overlap, keys: keys.length, gap: prim.top - lastKey, keyH: keys[0].height, scroll: document.scrollingElement.scrollTop, sh: document.scrollingElement.scrollHeight, H };
+  })()`);
+  eq('transfer+calc layout: all keys, note and Save inside the viewport', lay.inside, true);
+  eq('transfer+calc layout: nothing overlaps', lay.overlap, false);
+  eq('transfer+calc layout: 20 calculator keys', lay.keys, 20);
+  check('transfer+calc layout: Save sits below the keypad', lay.gap >= 0, JSON.stringify(lay));
+  check('transfer+calc layout: page does not scroll', lay.scroll === 0 && lay.sh <= lay.H, JSON.stringify(lay));
+  await shot('23-transfer-note');
+  await click('.key', '=');
+  await click('.primary', 'Save transfer');
+  await saved();
+
+  const d1 = await dump();
+  const t1 = d1.entries.at(-1);
+  check('ledger: transfer entry carries the note', t1.kind === 'transfer' && t1.note === NOTE && t1.amountMinor === 1500, canon(t1));
+  const row = (await homeRows()).find((r) => r.title === 'Transfer' && r.meta.includes(NOTE));
+  eq('Home: transfer meta is From → To · note', row?.meta, 'BDO → Wallet · ' + NOTE);
+  await click('.txrow', '~' + NOTE);
+  await waitFor(`!!document.querySelector('.sheet')`, 'detail sheet');
+  has('detail sheet shows the transfer note', await ev(`document.querySelector('.sheet').textContent`), NOTE);
+  await click('.textbtn', 'Done');
+  await waitFor(`!document.querySelector('.sheet')`, 'detail closed');
+
+  // edit: pre-filled, change, save -> corrected entry has the new note
+  await openEdit('~' + NOTE);
+  eq('edit transfer: note prefilled', await ev(`${field}.value`), NOTE);
+  await type('.sheet input.field', 'Mum – water');
+  await click('.primary', 'Save transfer');
+  await saved();
+  const d2 = await dump();
+  eq('edit transfer note: two new entries', d2.entries.length, d1.entries.length + 2);
+  check('edit transfer note: corrected entry has the new note', d2.entries.at(-1).note === 'Mum – water' && d2.entries.at(-2).kind === 'reversal', canon(d2.entries.at(-1)));
+  eq('Home: one row with the new note, old note gone', (await homeRows()).filter((r) => r.title === 'Transfer' && r.meta.includes('Mum')).map((r) => r.meta), ['BDO → Wallet · Mum – water']);
+
+  // a transfer without a note shows no trailing separator
+  await addTx({ type: 'transfer', keys: '7', from: 'BDO', to: 'Wallet' });
+  check('Home: empty note leaves meta as From → To', (await homeRows()).some((r) => r.title === 'Transfer' && r.meta === 'BDO → Wallet' && r.amt === php(700)));
+  noAlerts('transfer note');
+});
+
 flow('Crash shows the error, not a blank screen', async () => {
   await ev(`setTimeout(() => { throw new Error('boom test'); }); 1`);
   await sleep(200);

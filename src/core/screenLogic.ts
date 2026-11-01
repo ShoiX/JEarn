@@ -73,7 +73,7 @@ function row(e: Entry, dir: Directory, c: Currency): HomeRow {
     case 'income':
       return { id: e.id, title: dir.name(e.creditId), meta: join([dir.name(e.debitId), e.note]), kind: 'income', amountText: formatMoney(c, e.amountMinor, 'plus') };
     case 'transfer':
-      return { id: e.id, title: 'Transfer', meta: `${dir.name(e.creditId)} → ${dir.name(e.debitId)}`, kind: 'transfer', amountText: formatMoney(c, e.amountMinor) };
+      return { id: e.id, title: 'Transfer', meta: join([`${dir.name(e.creditId)} → ${dir.name(e.debitId)}`, e.note]), kind: 'transfer', amountText: formatMoney(c, e.amountMinor) };
     default:
       return {
         id: e.id, title: dir.name(e.debitId), meta: join([dir.categoryName(e.debitId), dir.name(e.creditId), e.note]),

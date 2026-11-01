@@ -96,6 +96,7 @@ export function AddSheet({ edit, onClose, onSaved }: { edit?: Entry; onClose: ()
         <button class={'calcbtn' + (calc ? ' on' : '')} aria-label="Calculator" aria-pressed={calc}
           onClick={() => { if (calc) patch({ expression: calculatorOff(d.expression, c) }); setCalc(!calc); }}><Icon name="calculator" size={18} /></button>
       </div>
+      {transfer && !picker && <div class="pad-h mb10"><input class="field" placeholder="Note (optional)" value={d.note} onInput={(e) => patch({ note: e.currentTarget.value })} /></div>}
       {picker === 'acct' && (
         <div class="inpanel">
           {accts.length === 0 && <div class="muted13">Add an account in Setup first.</div>}
