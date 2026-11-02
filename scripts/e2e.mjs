@@ -198,6 +198,7 @@ const text = (sel) => ev(`document.querySelector(${J(sel)})?.textContent.trim() 
 const body = () => ev('document.body.innerText');
 const tab = (name) => click('.tab', name);
 // Real touch drag via CDP on a swipe row (found by its "Archive <name>" button): touchStart near the right, touchMove steps, touchEnd.
+const RENAME = (name) => `.swipe-act.rename[aria-label="Rename ${name}"]`;
 const ACT = (name) => `.swipe-act[aria-label="Archive ${name}"]`;
 const touchDrag = async (x, y, dx, dy, steps = 6) => {
   await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
@@ -485,7 +486,7 @@ flow('Setup: categories and rollover', async () => {
 
 flow('Setup: swipe and add-form gestures', async () => {
   await tab('Setup');
-  check('swipe footnote shown', (await body()).includes('Swipe left on a row to archive it. Archived items can be restored at the bottom.'));
+  check('swipe footnote shown', (await body()).includes('Swipe left on a row to rename or archive it. Archived items can be restored at the bottom.'));
   check('no archive icon buttons', !(await exists('.iconbtn')));
   const archivedBefore = (await dump()).accounts.filter((a) => a.archivedAt).length;
   const tappable = (sel) => ev(`(() => { const el = document.querySelector(${J(sel)}); const b = el.getBoundingClientRect(); const t = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2); return t === el || el.contains(t); })()`);
@@ -497,13 +498,14 @@ flow('Setup: swipe and add-form gestures', async () => {
   await swipe('BDO', 0, -60);
   eq('vertical drag does not open the row', await rowX('BDO'), 0);
   await swipe('BDO');
-  eq('swipe left opens the row', await rowX('BDO'), -80);
+  eq('swipe left opens the row', await rowX('BDO'), -160);
   check('archive button tappable when open', await tappable(ACT('BDO')));
+  check('rename button tappable when open', await tappable(RENAME('BDO')));
   await click('.section-h', 'Currency');
   eq('tap elsewhere closes the open row', await rowX('BDO'), 0);
   await swipe('BDO');
   await swipe('Visa');
-  eq('second row open', await rowX('Visa'), -80);
+  eq('second row open', await rowX('Visa'), -160);
   eq('opening a second row closes the first', await rowX('BDO'), 0);
   await click('.section-h', 'Currency');
   // like iOS: with a row open, a tap on another control only closes the row
@@ -513,19 +515,19 @@ flow('Setup: swipe and add-form gestures', async () => {
   check('...without acting on that control', !(await exists('.panel')));
   // VoiceOver / keyboard: focusing the hidden Archive button opens the row
   await ev(`document.querySelector(${J(ACT('Visa'))}).focus()`);
-  eq('focusing Archive opens the row', await rowX('Visa'), -80);
+  eq('focusing Archive opens the row', await rowX('Visa'), -160);
   await click('.section-h', 'Currency');
   // category row: tapping an open row's content closes it and does not expand it
   const housingOpen = () => ev(`!!([...document.querySelectorAll('.srow-wrap')].find((w) => w.querySelector('.catbtn')?.textContent.includes('Housing'))).querySelector('.catbody')`);
   await swipe('Housing');
-  eq('Housing row open', await rowX('Housing'), -80);
+  eq('Housing row open', await rowX('Housing'), -160);
   await click('.catbtn', '~Housing');
   eq('tap on open row content closes it', await rowX('Housing'), 0);
   check('...and does not expand the category', !(await housingOpen()));
   await click('.catbtn', '~Housing'); // expand: subcategories are swipeable too
   const sub = await ev(`[...document.querySelectorAll('.srow-wrap')].find((w) => w.querySelector('.catbtn')?.textContent.includes('Housing')).querySelector('.subline .grow').textContent`);
   await swipe(sub);
-  eq('subcategory row opens by swipe', await rowX(sub), -80);
+  eq('subcategory row opens by swipe', await rowX(sub), -160);
   await click('.section-h', 'Currency');
   await click('.catbtn', '~Housing'); // collapse
 
@@ -1376,6 +1378,153 @@ flow('Transfer note', async () => {
   await addTx({ type: 'transfer', keys: '7', from: 'BDO', to: 'Wallet' });
   check('Home: empty note leaves meta as From → To', (await homeRows()).some((r) => r.title === 'Transfer' && r.meta === 'BDO → Wallet' && r.amt === php(700)));
   noAlerts('transfer note');
+});
+
+flow('Rename in Setup', async () => {
+  const OLD_ACCT = 'Metrobank Peso Savings Joint Account', NEW_ACCT = 'Joint Savings';
+  const OLD_CAT = 'Household Maintenance and Repairs', NEW_CAT = 'Home Repairs';
+  const OLD_SUB = 'Plumbing, Electrical and Aircon Servicing', NEW_SUB = 'Plumbing';
+  const OLD_INC = 'Salary', NEW_INC = 'Paycheck';
+  const before = await dump();
+  const editing = () => exists('.addrow input.field');
+  const saveDisabled = () => ev(`document.querySelector('.addrow .primary.small').disabled`);
+  const fieldValue = () => ev(`document.querySelector('.addrow input.field').value`);
+  const names = async () => { const d = await dump(); return { accts: d.accounts.map((a) => a.name), cats: d.expenseCats.map((c) => c.name), subs: d.expenseCats.flatMap((c) => c.subs.map((x) => x.name)), inc: d.incomeCats.map((c) => c.name) }; };
+  const startRename = async (name) => {
+    await swipe(name); await sleep(150);
+    await click(RENAME(name));
+    await waitFor(`!!document.querySelector('.addrow input.field')`, 'rename row');
+  };
+  const typeName = async (v) => { await type('.addrow input.field', v); };
+
+  await tab('Setup');
+  // swipe on a long-named row: both buttons visible and the row is not broken at 375px
+  await swipe(OLD_ACCT);
+  eq('long-named row opens to -160', await rowX(OLD_ACCT), -160);
+  const lay = await ev(`(() => { const sw = document.querySelector(${J(ACT(OLD_ACCT))}).parentElement; const r = sw.getBoundingClientRect();
+    const bs = [...sw.querySelectorAll('.swipe-act')].map((b) => b.getBoundingClientRect());
+    return { w: r.width, h: r.height, btns: bs.map((b) => [Math.round(b.left), Math.round(b.right), Math.round(b.height)]), inside: bs.every((b) => b.left >= r.left - 1 && b.right <= r.right + 1) }; })()`);
+  check('both buttons fit inside the row at 375px and fill its height', lay.inside && lay.btns.every((b) => b[2] === Math.round(lay.h)) && lay.btns[0][1] === lay.btns[1][0], JSON.stringify(lay));
+  await ev(`document.querySelector(${J(ACT(OLD_ACCT))}).scrollIntoView({ block: 'center' })`);
+  await settle();
+  await shot('24-rename-swipe');
+  await click('.section-h', 'Currency'); // close it
+
+  // edit row: pre-filled, focused, Save disabled while unchanged
+  await startRename(OLD_ACCT);
+  eq('edit row replaces the row (no swipe row for it)', await exists(RENAME(OLD_ACCT)), false);
+  eq('field pre-filled with the current name', await fieldValue(), OLD_ACCT);
+  check('field focused', await ev(`document.activeElement === document.querySelector('.addrow input.field')`));
+  check('Save disabled while unchanged', await saveDisabled());
+  await ev(`document.querySelector('.addrow').scrollIntoView({ block: 'center' })`); await settle();
+  await shot('25-rename-edit');
+  await setNative('.addrow input.field', '', 'input'); await settle();
+  check('Save disabled when empty', await saveDisabled());
+  await setNative('.addrow input.field', '   ', 'input'); await settle();
+  check('Save disabled when only spaces', await saveDisabled());
+  await typeName('bdo');
+  check('Save disabled for a duplicate (case-insensitive)', await saveDisabled());
+  await typeName(' BDO ');
+  check('Save disabled for a duplicate (trimmed)', await saveDisabled());
+  await typeName(NEW_ACCT);
+  check('Save enabled for a new name', !(await saveDisabled()));
+  // Escape cancels
+  await key('Escape');
+  check('Escape cancels the rename', !(await editing()));
+  eq('...and nothing changed', (await names()).accts.includes(OLD_ACCT) && !(await names()).accts.includes(NEW_ACCT), true);
+  // tapping elsewhere cancels (and does nothing else)
+  await startRename(OLD_ACCT);
+  await typeName(NEW_ACCT);
+  await click('.section-h', 'Currency');
+  check('tap elsewhere cancels the rename', !(await editing()));
+  eq('...and nothing changed (tap elsewhere)', (await names()).accts.includes(OLD_ACCT) && !(await names()).accts.includes(NEW_ACCT), true);
+  // Save by tap (real touch: the field blurs first, as on iOS)
+  await startRename(OLD_ACCT);
+  await typeName('  ' + NEW_ACCT + '  ');
+  await click('.addrow .primary.small', 'Save');
+  await waitFor(`!document.querySelector('.addrow input.field')`, 'rename saved');
+  check('account renamed (trimmed) by tapping Save', (await names()).accts.includes(NEW_ACCT) && !(await names()).accts.includes(OLD_ACCT));
+  const acct = (await dump()).accounts.find((a) => a.name === NEW_ACCT), acct0 = before.accounts.find((a) => a.name === OLD_ACCT);
+  check('account updatedAt touched, id and type kept', acct.updatedAt > acct0.updatedAt && acct.id === acct0.id && acct.type === acct0.type);
+
+  // subcategory (Return saves) then category (Save tap)
+  await click('.catbtn', '~' + OLD_CAT);
+  await startRename(OLD_SUB);
+  await typeName('plumbing, electrical and aircon servicing'); // case-only change of its own name is allowed
+  check('case-only change of its own name is allowed', !(await saveDisabled()));
+  await typeName(NEW_SUB);
+  await key('Enter');
+  check('subcategory renamed by Return', (await names()).subs.includes(NEW_SUB) && !(await names()).subs.includes(OLD_SUB));
+  await startRename(OLD_CAT);
+  await typeName('food');
+  check('Save disabled for a category duplicate', await saveDisabled());
+  await typeName(NEW_CAT);
+  await click('.addrow .primary.small', 'Save');
+  await waitFor(`!document.querySelector('.addrow input.field')`, 'category rename saved');
+  check('expense category renamed', (await names()).cats.includes(NEW_CAT) && !(await names()).cats.includes(OLD_CAT));
+  check('renamed category keeps its subcategory and stays expanded', (await texts('.subline')).includes(NEW_SUB));
+  await click('.catbtn', '~' + NEW_CAT); // collapse
+
+  // income category
+  await startRename(OLD_INC);
+  await typeName('bonus');
+  check('Save disabled for an income duplicate', await saveDisabled());
+  await typeName(NEW_INC);
+  await click('.addrow .primary.small', 'Save');
+  await waitFor(`!document.querySelector('.addrow input.field')`, 'income rename saved');
+  check('income category renamed', (await names()).inc.includes(NEW_INC) && !(await names()).inc.includes(OLD_INC));
+
+  const srows = (await texts('.srow')).join('|');
+  check('Setup lists the new names', [NEW_ACCT, NEW_CAT, NEW_INC].every((n) => srows.includes(n)) && ![OLD_ACCT, OLD_CAT, OLD_INC].some((n) => srows.includes(n)), srows.slice(0, 200));
+
+  // the ledger is untouched
+  const after = await dump();
+  eq('ledger: entries byte-identical before/after', canon(after.entries), canon(before.entries));
+
+  // Home: existing past entries show the new names
+  await tab('Home');
+  for (let i = 0; i < 3 && (await text('.large-title h1')) !== monthTitle(THIS_MONTH); i++) { await click('.monthnav [aria-label="Previous month"]'); await settle(); }
+  const card = await cards();
+  check('Home account card shows the new name', NEW_ACCT in card && !(OLD_ACCT in card), Object.keys(card).join(','));
+  const rows = JSON.stringify(await homeRows());
+  check('Home rows show the new account / category / subcategory names', [NEW_ACCT, NEW_SUB, NEW_INC].every((n) => rows.includes(n)), rows.slice(0, 400));
+  check('Home rows no longer show the old names', ![OLD_ACCT, OLD_SUB, OLD_INC, OLD_CAT].some((n) => rows.includes(n)), rows.slice(0, 400));
+  // detail sheet
+  await click('.txrow', '~' + NEW_SUB);
+  await waitFor(`!!document.querySelector('.sheet')`, 'detail sheet');
+  const det = await ev(`document.querySelector('.sheet').textContent`);
+  check('detail sheet shows the new names', det.includes(NEW_CAT) && det.includes(NEW_SUB) && det.includes(NEW_ACCT), det);
+  await click('.textbtn', 'Done');
+  await waitFor(`!document.querySelector('.sheet')`, 'detail closed');
+  // add sheet chips
+  await openAdd();
+  await click('.pill', undefined, { nth: 0 });
+  const chips = await texts('.inpanel .chip');
+  check('Add sheet account chips show the new name', chips.includes(NEW_ACCT) && !chips.includes(OLD_ACCT), chips.join(','));
+  await click('.inpanel .chip', NEW_ACCT);
+  await pressKeys('1');
+  await click('.primary', 'Choose category');
+  const cc = await texts('.catchip');
+  check('Add sheet subcategory chip shows the new name', cc.includes(NEW_SUB) && !cc.includes(OLD_SUB), cc.join(','));
+  check('Add sheet shows the new category heading', (await ev(`document.querySelector('.sheet').textContent`)).includes(NEW_CAT));
+  await click('.backbtn');
+  await click('.seg button', 'Income');
+  await click('.primary', 'Choose category');
+  const ic = await texts('.catchip');
+  check('Add sheet income chip shows the new name', ic.includes(NEW_INC) && !ic.includes(OLD_INC), ic.join(','));
+  await click('.backbtn');
+  await click('.textbtn', 'Cancel');
+  await waitFor(`!document.querySelector('.sheet')`, 'add sheet closed');
+
+  // export uses the new names
+  await tab('Setup');
+  await ev('window.__blob = null');
+  await click('.addbtn', 'Export data');
+  await waitFor(`!!window.__blob`, 'export blob');
+  const ex = JSON.parse(await ev(`window.__blob.text()`));
+  const exNames = JSON.stringify([ex.accounts.map((a) => a.name), ex.expenseCategories.map((c) => [c.name, c.subs.map((x) => x.name)]), ex.incomeCategories.map((c) => c.name), ex.entries.map((e) => [e.debitName, e.creditName])]);
+  check('export uses the new names', [NEW_ACCT, NEW_CAT, NEW_SUB, NEW_INC].every((n) => exNames.includes(n)) && ![OLD_ACCT, OLD_CAT, OLD_SUB, OLD_INC].some((n) => exNames.includes(n)), exNames.slice(0, 300));
+  noAlerts('rename');
 });
 
 flow('Crash shows the error, not a blank screen', async () => {

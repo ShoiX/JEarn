@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import {
   ACCOUNT_TYPES, CURRENCIES, bootLine, SnapshotError, accountClass, active, canChangeCurrency, canImport, carryover,
-  evaluate, formatMoney, importSnapshot, monthOf, openingEntry, plainAmount, rolloverNote, type AccountType,
+  evaluate, formatMoney, importSnapshot, monthOf, openingEntry, plainAmount, renameError, rolloverNote, type AccountType,
 } from '../../core';
 import { boot } from '../boot';
 import { useApp } from '../ctx';
@@ -51,6 +51,27 @@ function NameAdd({ placeholder, onAdd, onCancel }: { placeholder: string; onAdd:
   );
 }
 
+/** Inline rename: replaces the row. Save is disabled while the name is empty, unchanged or a duplicate in `items`.
+ *  Cancel is by Escape or an outside tap (not blur: on iOS tapping Save blurs the field first). */
+function RenameRow({ items, id, onSave, onCancel }: { items: readonly { id: string; name: string }[]; id: string; onSave: (name: string) => void; onCancel: () => void }) {
+  const [v, setV] = useState(items.find((x) => x.id === id)?.name ?? '');
+  const bad = renameError(v, items, id) !== null;
+  const submit = () => { if (!bad) onSave(v.trim()); };
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const away = (e: Event) => { if (!root.current?.contains(e.target as Node)) { e.preventDefault(); e.stopPropagation(); onCancel(); } };
+    document.addEventListener('click', away, true);
+    return () => document.removeEventListener('click', away, true);
+  }, []);
+  return (
+    <div class="addrow" ref={root}>
+      <input class="field" aria-label="Name" value={v} ref={focusOnce} onInput={(e) => setV(e.currentTarget.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') onCancel(); }} />
+      <button class="primary small" disabled={bad} onClick={submit}>Save</button>
+    </div>
+  );
+}
+
 function AddAccount({ onDone }: { onDone: () => void }) {
   const { c, actions } = useApp();
   const [name, setName] = useState(''), [bal, setBal] = useState(''), [type, setType] = useState<AccountType>('bank');
@@ -83,6 +104,7 @@ export function Setup() {
   const thisMonth = monthOf(today);
   const [panel, setPanel] = useState<{ id: string; mode: 'type' | 'opening'; value: string } | null>(null);
   const [openRow, setOpenRow] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
   const [adding, setAdding] = useState<string | null>(null);
   const [openCats, setOpenCats] = useState<Set<string>>(new Set());
   const file = useRef<HTMLInputElement>(null);
@@ -118,6 +140,10 @@ export function Setup() {
   const archivedCount = archivedAccounts.length + archivedCats.length + archivedSubs.length + archivedIncome.length;
   const [showArchived, setShowArchived] = useState(false);
   const locked = !canChangeCurrency(ledger);
+  const startRename = (id: string) => { setOpenRow(null); setRenaming(id); };
+  const doneRename = (p?: Promise<unknown>) => { setRenaming(null); if (p) go(p); };
+  const renameRow = (id: string, items: readonly { id: string; name: string }[], save: (n: string) => Promise<unknown>) =>
+    <RenameRow items={items} id={id} onCancel={() => setRenaming(null)} onSave={(n) => doneRename(save(n))} />;
 
   return (
     <>
@@ -130,7 +156,8 @@ export function Setup() {
           const op = openingEntry(ledger, a.id);
           return (
             <div class="srow-wrap" key={a.id}>
-              <SwipeRow id={a.id} name={a.name} openId={openRow} setOpenId={setOpenRow} onArchive={() => { setOpenRow(null); go(actions.archiveAccount(a.id, true)); }}>
+              {renaming === a.id ? renameRow(a.id, accounts, (n) => actions.renameAccount(a.id, n)) :
+              <SwipeRow id={a.id} name={a.name} openId={openRow} setOpenId={setOpenRow} onRename={() => startRename(a.id)} onArchive={() => { setOpenRow(null); go(actions.archiveAccount(a.id, true)); }}>
               <div class="srow acct">
                 <span class="muted"><Icon name={accountIcon(a.type)} size={20} /></span>
                 <div class="grow">
@@ -141,7 +168,7 @@ export function Setup() {
                 </div>
                 <span class="muted14">{fmt(ledger.balance(a.id, accountClass(a.type)))}</span>
               </div>
-              </SwipeRow>
+              </SwipeRow>}
               {p?.mode === 'type' && (
                 <div class="panel">
                   <TypeChips value={a.type} tone="row" onPick={(t) => { go(actions.setAccountType(a.id, t)); setPanel(null); }} />
@@ -166,7 +193,7 @@ export function Setup() {
         })}
         {adding === 'account' ? <AddAccount onDone={() => setAdding(null)} /> : <button class="addbtn" onClick={() => setAdding('account')}><Icon name="plus" size={16} />Add account</button>}
       </div>
-      <div class="footnote pad-h">Swipe left on a row to archive it. Archived items can be restored at the bottom.</div>
+      <div class="footnote pad-h">Swipe left on a row to rename or archive it. Archived items can be restored at the bottom.</div>
 
       <SectionHeader>Expense categories</SectionHeader>
       <div class="group">
@@ -175,14 +202,15 @@ export function Setup() {
           const note = rolloverNote(cat, carryover(ledger, cat, thisMonth), thisMonth, c);
           return (
             <div class="srow-wrap" key={cat.id}>
-              <SwipeRow id={cat.id} name={cat.name} openId={openRow} setOpenId={setOpenRow} onArchive={() => { setOpenRow(null); go(actions.archiveExpenseCategory(cat.id, true)); }}>
+              {renaming === cat.id ? renameRow(cat.id, expenseCategories, (n) => actions.renameExpenseCategory(cat.id, n)) :
+              <SwipeRow id={cat.id} name={cat.name} openId={openRow} setOpenId={setOpenRow} onRename={() => startRename(cat.id)} onArchive={() => { setOpenRow(null); go(actions.archiveExpenseCategory(cat.id, true)); }}>
               <div class="srow">
                 <button class="catbtn" onClick={() => toggleCat(cat.id)}>
                   <i class="dot" style={{ background: colors.get(cat.id) }} /><span class="grow left">{cat.name}</span>
                   <span class="muted13">{subs.length}</span><span class="muted"><Icon name={open ? 'up' : 'down'} size={14} /></span>
                 </button>
               </div>
-              </SwipeRow>
+              </SwipeRow>}
               {open && (
                 <div class="catbody">
                   <div class="rollrow">
@@ -190,8 +218,8 @@ export function Setup() {
                     {cat.rollover && <button class="ghost small" onClick={() => go(actions.resetRollover(cat.id, thisMonth))}>Reset</button>}
                     <Switch on={cat.rollover} label="Roll over to next month" onChange={(v) => go(actions.setRollover(cat.id, v, thisMonth))} />
                   </div>
-                  {subs.map((s) => (
-                    <SwipeRow key={s.id} id={s.id} name={s.name} openId={openRow} setOpenId={setOpenRow} onArchive={() => { setOpenRow(null); go(actions.archiveSubcategory(cat.id, s.id, true)); }}>
+                  {subs.map((s) => renaming === s.id ? <div key={s.id}>{renameRow(s.id, cat.subs, (n) => actions.renameSubcategory(cat.id, s.id, n))}</div> : (
+                    <SwipeRow key={s.id} id={s.id} name={s.name} openId={openRow} setOpenId={setOpenRow} onRename={() => startRename(s.id)} onArchive={() => { setOpenRow(null); go(actions.archiveSubcategory(cat.id, s.id, true)); }}>
                       <div class="subline"><span class="grow">{s.name}</span></div>
                     </SwipeRow>
                   ))}
@@ -210,8 +238,8 @@ export function Setup() {
 
       <SectionHeader>Income categories</SectionHeader>
       <div class="group">
-        {active(incomeCategories).map((x) => (
-          <SwipeRow key={x.id} id={x.id} name={x.name} openId={openRow} setOpenId={setOpenRow} onArchive={() => { setOpenRow(null); go(actions.archiveIncomeCategory(x.id, true)); }}>
+        {active(incomeCategories).map((x) => renaming === x.id ? <div key={x.id}>{renameRow(x.id, incomeCategories, (n) => actions.renameIncomeCategory(x.id, n))}</div> : (
+          <SwipeRow key={x.id} id={x.id} name={x.name} openId={openRow} setOpenId={setOpenRow} onRename={() => startRename(x.id)} onArchive={() => { setOpenRow(null); go(actions.archiveIncomeCategory(x.id, true)); }}>
             <div class="srow"><span class="grow">{x.name}</span></div>
           </SwipeRow>
         ))}

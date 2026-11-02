@@ -65,6 +65,7 @@ export function makeActions(conn: Connection, getData: () => Data, commit: (d: D
         commit({ ...d, accounts: [...d.accounts, a], ledger: l });
       });
     },
+    renameAccount: (id: string, name: string) => editAccount(id, (a) => ({ ...a, name: name.trim() })),
     setAccountType: (id: string, type: AccountType) => editAccount(id, (a) => ({ ...a, type })),
     archiveAccount: (id: string, archived: boolean) => editAccount(id, ({ archivedAt: _x, ...a }) => (archived ? { ...a, archivedAt: nowIso() } : a)),
     /** Void the live opening entry (same date), then post the new one; 0 only voids. */
@@ -84,6 +85,8 @@ export function makeActions(conn: Connection, getData: () => Data, commit: (d: D
       const d = getData(); const c = newExpenseCategory(name);
       await conn.use((db) => putExpenseCat(db, c)); commit({ ...d, expenseCategories: [...d.expenseCategories, c] });
     }),
+    renameExpenseCategory: (id: string, name: string) => editCat(id, (c) => ({ ...c, name: name.trim() })),
+    renameSubcategory: (catId: string, subId: string, name: string) => editSub(catId, subId, (s) => ({ ...s, name: name.trim() })),
     addSubcategory: (catId: string, name: string) => editCat(catId, (c) => ({ ...c, subs: [...c.subs, newSubCategory(name)] })),
     archiveExpenseCategory: (id: string, archived: boolean) =>
       editCat(id, ({ archivedAt: _x, ...c }) => (archived ? { ...c, archivedAt: nowIso() } : c)),
@@ -102,6 +105,7 @@ export function makeActions(conn: Connection, getData: () => Data, commit: (d: D
       const d = getData(); const c = newIncomeCategory(name);
       await conn.use((db) => putIncomeCat(db, c)); commit({ ...d, incomeCategories: [...d.incomeCategories, c] });
     }),
+    renameIncomeCategory: (id: string, name: string) => editIncome(id, (c) => ({ ...c, name: name.trim() })),
     archiveIncomeCategory: (id: string, archived: boolean) =>
       editIncome(id, ({ archivedAt: _x, ...c }) => (archived ? { ...c, archivedAt: nowIso() } : c)),
 
