@@ -1,5 +1,5 @@
 // Swipe-to-reveal gesture math (offsets are negative: content shifted left).
-export const SWIPE_OPEN = 80; // width of the revealed action, px
+export const SWIPE_OPEN = 160; // width of the revealed actions (Rename + Archive), px
 const LOCK = 8; // movement before deciding horizontal vs vertical
 const SNAP = 40; // release past this opens the row
 
@@ -9,7 +9,7 @@ export function lockAxis(dx: number, dy: number): 'h' | 'v' | null {
   return Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
 }
 
-/** Content offset while dragging: follows 1:1 from where the row started, clamped to -80..0. */
+/** Content offset while dragging: follows 1:1 from where the row started, clamped to -160..0. */
 export const swipeOffset = (start: number, dx: number) => Math.min(0, Math.max(-SWIPE_OPEN, start + dx));
 
 /** Where the row rests after release. */

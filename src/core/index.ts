@@ -11,5 +11,6 @@ export * from './screenLogic';
 export * from './snapshot';
 export * from './viewLogic';
 export * from './starter';
+export * from './rename';
 export * from './swipe';
 export * from './boot';

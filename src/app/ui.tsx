@@ -54,9 +54,9 @@ export function Sheet({ onClose, tall, children }: { onClose: () => void; tall: 
 /** Ref callback: focus an input once when it appears (iOS ignores autofocus). */
 export const focusOnce = (el: HTMLInputElement | null) => { if (el && !el.dataset.f) { el.dataset.f = '1'; el.focus(); } };
 
-/** Row that slides left to reveal an "Archive" button. `openId` is shared so only one row is open at a time. */
-export function SwipeRow({ id, name, openId, setOpenId, onArchive, children }: {
-  id: string; name: string; openId: string | null; setOpenId: (id: string | null) => void; onArchive: () => void; children: ComponentChildren;
+/** Row that slides left to reveal "Rename" and "Archive" buttons. `openId` is shared so only one row is open at a time. */
+export function SwipeRow({ id, name, openId, setOpenId, onRename, onArchive, children }: {
+  id: string; name: string; openId: string | null; setOpenId: (id: string | null) => void; onRename: () => void; onArchive: () => void; children: ComponentChildren;
 }) {
   const open = openId === id;
   const root = useRef<HTMLDivElement>(null);
@@ -83,7 +83,8 @@ export function SwipeRow({ id, name, openId, setOpenId, onArchive, children }: {
   };
   return (
     <div class="swipe" ref={root}>
-      {/* Covered by the row until it slides open; focusing it (VoiceOver, keyboard) opens the row. */}
+      {/* Covered by the row until it slides open; focusing one (VoiceOver, keyboard) opens the row. */}
+      <button class="swipe-act rename" aria-label={`Rename ${name}`} onFocus={() => setOpenId(id)} onClick={onRename}>Rename</button>
       <button class="swipe-act" aria-label={`Archive ${name}`} onFocus={() => setOpenId(id)} onClick={onArchive}>Archive</button>
       <div class={'swipe-body' + (drag === null ? ' snap' : '')} style={{ transform: `translateX(${drag ?? (open ? -SWIPE_OPEN : 0)}px)` }}
         onPointerDown={(e) => { const s = g.current; s.x = e.clientX; s.y = e.clientY; s.start = open ? -SWIPE_OPEN : 0; s.axis = null; s.moved = false; s.pid = e.pointerId; }}
